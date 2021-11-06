@@ -14,12 +14,10 @@ python toy_linear_classification.py 4 0
 import os
 import sys
 import csv
-import ipdb
 import time
 import itertools
 import numpy as np
 import pickle as pkl
-from pathlib import Path
 import matplotlib.pyplot as plt
 
 import torch
@@ -611,8 +609,8 @@ def figure_noise_dependency(dim):
     if not os.path.isdir(subfolder):
       os.mkdir(subfolder)
 
-    filename = Path(os.path.join(subfolder, 'res.csv'))
-    if not filename.is_file():
+    filename = os.path.join(subfolder, 'res.csv')
+    if not os.path.exists(filename):
       fields = ['loss_terms', 'correlation', 'noise_level', 'lr_discr', 'res_train', 'res_test', 'corr_predictions', 'corr_data', 'loss_cls', 'loss_discr', 'optimal_W']
       with open(filename, 'a') as f:
         writer = csv.writer(f)
