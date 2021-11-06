@@ -19,7 +19,7 @@ pip install -r requirements.txt
 
 ### Toy 2D Linear Regression
 ```
-python toy_linear_regression_notebook.py
+python toy_linear_regression.py
 ```
 
 ![Toy linear regression plot](figures/toy-linear-regression.png)
@@ -222,7 +222,7 @@ python evaluate_disentanglement.py
 
 If you use this code, please cite:
 
-* `Christina Funke*, Paul Vicol*, Kuan-Chieh Wang, Matthias Kummerer, Richard Zemel, Matthias Bethge. "Disentanglement and Generalization Under Correlation Shifts." arXiv ... 2021.`
+* `Christina Funke*, Paul Vicol*, Kuan-Chieh Wang, Matthias Kümmerer, Richard Zemel, Matthias Bethge. "Disentanglement and Generalization Under Correlation Shifts." arXiv ... 2021.`
 
 ```
 @article{cond-disentanglement,
