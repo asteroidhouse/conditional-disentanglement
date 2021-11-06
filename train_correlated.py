@@ -180,9 +180,10 @@ if torch.cuda.is_available():
   torch.cuda.manual_seed_all(args.seed)
 
 exp_name = 'ft1t2:{}_{}_{}-trnc:{}-tstc:{}-m:{}-lr:{}-clr:{}-dlr:{}-on:{}-z:{}-mi:{}-dl:{}-cls:{}-s:{}'.format(
-            args.filter_variable, args.target_variable1, args.target_variable2, args.train_corr, args.test_corr,
-            args.model, args.lr, args.cls_lr, args.D_lr, args.noise, args.z_dim, args.mi_type,
-            args.disentangle_weight, args.num_cls_steps, args.seed)
+            args.filter_variable, args.target_variable1, args.target_variable2,
+            args.train_corr, args.test_corr, args.model, args.lr, args.cls_lr,
+            args.D_lr, args.noise, args.z_dim, args.mi_type, args.disentangle_weight,
+            args.num_cls_steps, args.seed)
 
 if args.prefix:
   exp_name = args.prefix + '-' + exp_name
@@ -204,11 +205,13 @@ if not os.path.exists(save_dir):
 with open(os.path.join(save_dir, 'args.yaml'), 'w') as f:
   yaml.dump(vars(args), f)
 
-iteration_logger = CSVLogger(fieldnames=['epoch', 'global_iteration',
-                                         'trn_loss', 'trn_f1_acc', 'trn_f2_acc',
-                                         'val_loss', 'val_f1_acc', 'val_f2_acc',
-                                         'tst_ac_loss', 'tst_ac_f1_acc', 'tst_ac_f2_acc',
-                                         'tst_uc_loss', 'tst_uc_f1_acc', 'tst_uc_f2_acc'],
+csv_fieldnames = ['epoch', 'global_iteration',
+                  'trn_loss', 'trn_f1_acc', 'trn_f2_acc',
+                  'val_loss', 'val_f1_acc', 'val_f2_acc',
+                  'tst_ac_loss', 'tst_ac_f1_acc', 'tst_ac_f2_acc',
+                  'tst_uc_loss', 'tst_uc_f1_acc', 'tst_uc_f2_acc']
+
+iteration_logger = CSVLogger(fieldnames=csv_fieldnames,
                              filename=os.path.join(save_dir, 'iteration.csv'))
 
 if args.tb_logdir:
@@ -222,7 +225,9 @@ c_to_i = {0: 0, 1: 1}
 possible_labels = [c_to_i[v] for v in classes]
 
 if args.dataset_type == 'conditioned':
-  datasets = celeba.get_celeba_dataset(args.filter_variable, args.target_variable1, args.target_variable2)
+  datasets = celeba.get_celeba_dataset(args.filter_variable,
+                                       args.target_variable1,
+                                       args.target_variable2)
   kwargs = {'num_workers': 1, 'pin_memory': True}
   loaders = dict([(k, DataLoader(datasets[k], batch_size=100, shuffle=True if 'train' in k else False, **kwargs)) for k in datasets])
 
@@ -325,7 +330,8 @@ def plot_joint_matrix(dataset, factor1=None, factor2=None, title=None, fname=Non
   # Loop over data dimensions and create text annotations.
   for i in range(len(xticks)):
     for j in range(len(yticks)):
-      text = plt.text(j, i, round(joint_matrix[i, j], 2), ha='center', va='center', color='g', fontsize=18)
+      text = plt.text(j, i, round(joint_matrix[i, j], 2),
+                      ha='center', va='center', color='g', fontsize=18)
 
   if title:
     plt.title(title, fontsize=20)
@@ -368,7 +374,8 @@ train_grid = torchvision.utils.make_grid(train_images, nrow=8, pad_value=1)
 fig = plt.figure(figsize=(10,10))
 plt.imshow(train_grid.numpy().transpose(1,2,0))
 plt.axis('off')
-plt.savefig(os.path.join(save_dir, 'train_samples.png'), bbox_inches='tight', pad_inches=0)
+plt.savefig(os.path.join(save_dir, 'train_samples.png'),
+            bbox_inches='tight', pad_inches=0)
 plt.close(fig)
 
 val_images, val_labels = next(iter(val_loader))
@@ -376,7 +383,8 @@ val_grid = torchvision.utils.make_grid(val_images, nrow=8, pad_value=1)
 fig = plt.figure(figsize=(10,10))
 plt.imshow(val_grid.numpy().transpose(1,2,0))
 plt.axis('off')
-plt.savefig(os.path.join(save_dir, 'val_samples.png'), bbox_inches='tight', pad_inches=0)
+plt.savefig(os.path.join(save_dir, 'val_samples.png'),
+            bbox_inches='tight', pad_inches=0)
 plt.close(fig)
 
 test_images, test_labels = next(iter(test_loader_anticorrelated))
@@ -384,7 +392,8 @@ test_grid = torchvision.utils.make_grid(test_images, nrow=8, pad_value=1)
 fig = plt.figure(figsize=(10,10))
 plt.imshow(test_grid.numpy().transpose(1,2,0))
 plt.axis('off')
-plt.savefig(os.path.join(save_dir, 'test_anticorrelated_samples.png'), bbox_inches='tight', pad_inches=0)
+plt.savefig(os.path.join(save_dir, 'test_anticorrelated_samples.png'),
+            bbox_inches='tight', pad_inches=0)
 plt.close(fig)
 
 test_images, test_labels = next(iter(test_loader_uncorrelated))
@@ -392,7 +401,8 @@ test_grid = torchvision.utils.make_grid(test_images, nrow=8, pad_value=1)
 fig = plt.figure(figsize=(10,10))
 plt.imshow(test_grid.numpy().transpose(1,2,0))
 plt.axis('off')
-plt.savefig(os.path.join(save_dir, 'test_uncorrelated_samples.png'), bbox_inches='tight', pad_inches=0)
+plt.savefig(os.path.join(save_dir, 'test_uncorrelated_samples.png'),
+            bbox_inches='tight', pad_inches=0)
 plt.close(fig)
 # --------------------------------------------------------
 
@@ -811,8 +821,10 @@ for epoch in range(args.epochs):
   plt.ylabel('Loss', fontsize=18)
   plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
   sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_losses.png'), bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_losses.pdf'), bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_losses.png'),
+              bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_losses.pdf'),
+              bbox_inches='tight', pad_inches=0)
   plt.close(fig)
 
   fig = plt.figure(figsize=(6,4))
@@ -827,8 +839,10 @@ for epoch in range(args.epochs):
   plt.ylabel('{} Accuracy'.format(args.target_variable1), fontsize=18)
   plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
   sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_acc.png'), bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_acc.pdf'), bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_acc.png'),
+              bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_acc.pdf'),
+              bbox_inches='tight', pad_inches=0)
   plt.close(fig)
 
   fig = plt.figure(figsize=(6,4))
@@ -844,8 +858,10 @@ for epoch in range(args.epochs):
   plt.ylabel('{} Accuracy'.format(args.target_variable1), fontsize=18)
   plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
   sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.png'), bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.pdf'), bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.png'),
+              bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.pdf'),
+              bbox_inches='tight', pad_inches=0)
   plt.close(fig)
 
   fig = plt.figure(figsize=(6,4))
@@ -861,13 +877,14 @@ for epoch in range(args.epochs):
   plt.ylabel('{} Accuracy'.format(args.target_variable2), fontsize=18)
   plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
   sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.png'), bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.pdf'), bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.png'),
+              bbox_inches='tight', pad_inches=0)
+  plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.pdf'),
+              bbox_inches='tight', pad_inches=0)
   plt.close(fig)
 
   if args.z_dim == 2:  # If the latent space is 2D, plot it
     fig = plt.figure(figsize=(6,4))
-
     for combo in itertools.product(possible_labels, possible_labels):
       indexes = np.all(trn_labels == np.array(combo), axis=1)
       z_subset = trn_zs[indexes,:]
@@ -878,27 +895,30 @@ for epoch in range(args.epochs):
     plt.ylabel('$z_2$', fontsize=18)
     plt.legend(fontsize=16, fancybox=True, framealpha=0.3)
     sns.despine()
-    plt.savefig(os.path.join(save_dir, 'z_space', 'epoch_train_z_space_{}.png'.format(epoch)), bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(save_dir, 'z_space', 'epoch_train_z_space_{}.png'.format(epoch)),
+                bbox_inches='tight', pad_inches=0)
     plt.close(fig)
 
-    fig = plt.figure(figsize=(6,4))
-    for combo in itertools.product(possible_labels, possible_labels):
-      indexes = np.all(tst_labels == np.array(combo), axis=1)
-      z_subset = tst_zs[indexes,:]
-      plt.scatter(z_subset[:,0], z_subset[:,1], alpha=0.2, label='$z_1$={}, $z_2$={}'.format(combo[0], combo[1]))
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.xlabel('$z_1$', fontsize=18)
-    plt.ylabel('$z_2$', fontsize=18)
-    plt.legend(fontsize=16, fancybox=True, framealpha=0.3)
-    sns.despine()
-    plt.savefig(os.path.join(save_dir, 'z_space', 'epoch_test_z_space_{}.png'.format(epoch)), bbox_inches='tight', pad_inches=0)
-    plt.close(fig)
+    # fig = plt.figure(figsize=(6,4))
+    # for combo in itertools.product(possible_labels, possible_labels):
+    #   indexes = np.all(tst_labels == np.array(combo), axis=1)
+    #   z_subset = tst_zs[indexes,:]
+    #   plt.scatter(z_subset[:,0], z_subset[:,1], alpha=0.2, label='$z_1$={}, $z_2$={}'.format(combo[0], combo[1]))
+    # plt.xticks(fontsize=16)
+    # plt.yticks(fontsize=16)
+    # plt.xlabel('$z_1$', fontsize=18)
+    # plt.ylabel('$z_2$', fontsize=18)
+    # plt.legend(fontsize=16, fancybox=True, framealpha=0.3)
+    # sns.despine()
+    # plt.savefig(os.path.join(save_dir, 'z_space', 'epoch_test_z_space_{}.png'.format(epoch)), bbox_inches='tight', pad_inches=0)
+    # plt.close(fig)
 
   print('Epoch: {:3d} | Trn loss: {:6.4e} | Trn f1: {:6.4f} | Trn f2: {:6.4f} | '
         'Val loss: {:6.4e} | Val f1: {:6.4f} | Val f2: {:6.4f} | '
         'Tst loss: {:6.4e} | Tst f1: {:6.4f} | Tst f2: {:6.4f}'.format(
-         epoch, trn_loss, trn_f1_acc, trn_f2_acc, val_loss, val_f1_acc, val_f2_acc, tst_ac_loss, tst_ac_f1_acc, tst_ac_f2_acc))
+         epoch, trn_loss, trn_f1_acc, trn_f2_acc,
+         val_loss, val_f1_acc, val_f2_acc,
+         tst_ac_loss, tst_ac_f1_acc, tst_ac_f2_acc))
   sys.stdout.flush()
 
   stats_dict = { 'epoch': epoch,
@@ -955,13 +975,19 @@ for epoch in range(args.epochs):
       real_scores_latent = discriminator(z)
       fake_scores_latent = discriminator(z_shuffled)
       G_gan_loss = 0.0
-      G_gan_loss += F.binary_cross_entropy_with_logits(fake_scores_latent, torch.ones((z.size(0), 1), device=z.device))
-      G_gan_loss += F.binary_cross_entropy_with_logits(real_scores_latent, torch.zeros((z.size(0), 1), device=z.device))
+      G_gan_loss += F.binary_cross_entropy_with_logits(fake_scores_latent,
+                                                       torch.ones((z.size(0), 1),
+                                                        device=z.device))
+      G_gan_loss += F.binary_cross_entropy_with_logits(real_scores_latent,
+                                                       torch.zeros((z.size(0), 1),
+                                                        device=z.device))
       G_loss += args.disentangle_weight * G_gan_loss
     elif args.mi_type == 'conditional':
-      for f1_value in list(set(f1_labels.detach().cpu().numpy())):  # Possible values for a1
+      # Loop over possible values for the first factor
+      for f1_value in list(set(f1_labels.detach().cpu().numpy())):
         value_filter = (f1_labels == f1_value)
-        cond_zs = z[value_filter]  # Take only the zs that have the value of a1 that we're conditioning on
+        # Take only the zs that have the value of a1 that we're conditioning on
+        cond_zs = z[value_filter]
         cond_zs_sub = cond_zs
         perm = torch.randperm(len(cond_zs_sub))
         cond_zs_sub_shuffled = torch.clone(cond_zs_sub)
@@ -973,9 +999,11 @@ for epoch in range(args.epochs):
                         F.binary_cross_entropy_with_logits(real_scores_f1, torch.zeros((cond_zs.size(0), 1), device=z.device))  # Original G objective
         G_gan_loss += G_gan_loss_f1
 
+      # Loop over possible values for the second factor
       for f2_value in list(set(f2_labels.detach().cpu().numpy())):
         value_filter = (f2_labels == f2_value)
-        cond_zs = z[value_filter]  # Take only the zs that have the value of a1 that we're conditioning on
+        # Take only the zs that have the value of a1 that we're conditioning on
+        cond_zs = z[value_filter]
         cond_zs_sub = cond_zs
         perm = torch.randperm(len(cond_zs_sub))
         cond_zs_sub_shuffled = torch.clone(cond_zs_sub)
@@ -995,7 +1023,8 @@ for epoch in range(args.epochs):
       total_mmd_loss = mmd_loss(z, z_shuffled, sigmas=sigmas)
       G_loss += args.disentangle_weight * total_mmd_loss
     elif args.mi_type == 'mmd-cond':
-      total_mmd_loss = 0.0  # This will accumulate the conditional mutual information
+      # This will accumulate the conditional mutual information
+      total_mmd_loss = 0.0
 
       # Expectation over conditioning on each possible class {0,1} for the first factor of variation, z[:,0]
       for condition in [c_to_i[item] for item in classes]:
@@ -1011,7 +1040,7 @@ for epoch in range(args.epochs):
         z2_marginal = z2_shuffled[labels_shuffled[:,0] == condition]
         z1_z2_marginal = torch.cat([z1_marginal, z2_marginal], axis=1)
 
-        # So now we need to compute the mutual information between v1_v2_joint and v1_v2_marginal
+        # Compute the mutual information between v1_v2_joint and v1_v2_marginal
         total_mmd_loss += mmd_loss(z1_z2_joint, z1_z2_marginal, sigmas=sigmas)
 
       # Expectation over conditioning on each possible class {0,1} for the first factor of variation, z[:,1]
@@ -1052,8 +1081,12 @@ for epoch in range(args.epochs):
     if args.mi_type == 'unconditional':
       real_scores_latent = discriminator(z.detach())
       fake_scores_latent = discriminator(z_shuffled.detach())
-      D_real_loss_latent = F.binary_cross_entropy_with_logits(real_scores_latent, torch.ones((z.size(0), 1), device=z.device))
-      D_fake_loss_latent = F.binary_cross_entropy_with_logits(fake_scores_latent, torch.zeros((z.size(0), 1), device=z.device))
+      D_real_loss_latent = F.binary_cross_entropy_with_logits(real_scores_latent,
+                                                              torch.ones((z.size(0), 1),
+                                                              device=z.device))
+      D_fake_loss_latent = F.binary_cross_entropy_with_logits(fake_scores_latent,
+                                                              torch.zeros((z.size(0), 1),
+                                                              device=z.device))
       D_loss = D_real_loss_latent + D_fake_loss_latent
 
       disc_optimizer.zero_grad()
@@ -1104,7 +1137,8 @@ for epoch in range(args.epochs):
       fig = plt.figure()
       plt.imshow(covariance, cmap='seismic', vmin=-1, vmax=1)
       plt.colorbar()
-      plt.savefig(os.path.join(save_dir, 'cov_plots', 'cov_{}.png'.format(global_iteration)), bbox_inches='tight')
+      plt.savefig(os.path.join(save_dir, 'cov_plots', 'cov_{}.png'.format(global_iteration)),
+                  bbox_inches='tight')
       plt.close(fig)
 
     global_iteration += 1
@@ -1128,7 +1162,8 @@ for epoch in range(args.epochs):
         plt.yticks(fontsize=16)
         plt.title(key, fontsize=20)
         plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, 'loss_plots', '{}.png'.format(key)), bbox_inches='tight', pad_inches=0)
+        plt.savefig(os.path.join(save_dir, 'loss_plots', '{}.png'.format(key)),
+                    bbox_inches='tight', pad_inches=0)
         plt.close(fig)
 
     if global_iteration % args.eval_mi_every == 0:
@@ -1139,20 +1174,29 @@ for epoch in range(args.epochs):
       f1_labels_np = f1_labels.unsqueeze(1).detach().cpu().float().numpy()
       f2_labels_np = f2_labels.unsqueeze(1).detach().cpu().float().numpy()
 
-      cmi_z1_z2_given_f1 = continuous.get_pmi(z1_np, z2_np, f1_labels_np, k=3, norm='max', estimator='fp')
-      cmi_z1_z2_given_f2 = continuous.get_pmi(z1_np, z2_np, f2_labels_np, k=3, norm='max', estimator='fp')
-      cmi_z1_f2_given_f1 = continuous.get_pmi(z1_np, f2_labels_np, f1_labels_np, k=3, norm='max', estimator='fp')
-      cmi_z2_f1_given_f2 = continuous.get_pmi(z2_np, f1_labels_np, f2_labels_np, k=3, norm='max', estimator='fp')
+      cmi_z1_z2_given_f1 = continuous.get_pmi(z1_np, z2_np, f1_labels_np,
+                                              k=3, norm='max', estimator='fp')
+      cmi_z1_z2_given_f2 = continuous.get_pmi(z1_np, z2_np, f2_labels_np,
+                                              k=3, norm='max', estimator='fp')
+      cmi_z1_f2_given_f1 = continuous.get_pmi(z1_np, f2_labels_np, f1_labels_np,
+                                              k=3, norm='max', estimator='fp')
+      cmi_z2_f1_given_f2 = continuous.get_pmi(z2_np, f1_labels_np, f2_labels_np,
+                                              k=3, norm='max', estimator='fp')
 
       mi_dict['cmi_z1_z2_given_f1'].append(cmi_z1_z2_given_f1)
       mi_dict['cmi_z1_z2_given_f2'].append(cmi_z1_z2_given_f2)
       mi_dict['cmi_z1_f2_given_f1'].append(cmi_z1_f2_given_f1)
       mi_dict['cmi_z2_f1_given_f2'].append(cmi_z2_f1_given_f2)
-      mi_dict['z1_z2_mi'].append(continuous.get_mi(z1_np, z2_np, estimator='ksg', k=args.k_neighbors))
-      mi_dict['z1_f1_mi'].append(continuous.get_mi(z1_np, f1_labels.detach().cpu().numpy(), estimator='ksg', k=args.k_neighbors))
-      mi_dict['z1_f2_mi'].append(continuous.get_mi(z1_np, f2_labels.detach().cpu().numpy(), estimator='ksg', k=args.k_neighbors))
-      mi_dict['z2_f1_mi'].append(continuous.get_mi(z2_np, f1_labels.detach().cpu().numpy(), estimator='ksg', k=args.k_neighbors))
-      mi_dict['z2_f2_mi'].append(continuous.get_mi(z2_np, f2_labels.detach().cpu().numpy(), estimator='ksg', k=args.k_neighbors))
+      mi_dict['z1_z2_mi'].append(continuous.get_mi(z1_np, z2_np,
+                                                   estimator='ksg', k=args.k_neighbors))
+      mi_dict['z1_f1_mi'].append(continuous.get_mi(z1_np, f1_labels.detach().cpu().numpy(),
+                                                   estimator='ksg', k=args.k_neighbors))
+      mi_dict['z1_f2_mi'].append(continuous.get_mi(z1_np, f2_labels.detach().cpu().numpy(),
+                                                   estimator='ksg', k=args.k_neighbors))
+      mi_dict['z2_f1_mi'].append(continuous.get_mi(z2_np, f1_labels.detach().cpu().numpy(),
+                                                   estimator='ksg', k=args.k_neighbors))
+      mi_dict['z2_f2_mi'].append(continuous.get_mi(z2_np, f2_labels.detach().cpu().numpy(),
+                                                   estimator='ksg', k=args.k_neighbors))
 
     if global_iteration % args.plot_every == 0:
       for key in [mykey for mykey in mi_dict.keys() if mykey != 'iteration']:
@@ -1164,7 +1208,8 @@ for epoch in range(args.epochs):
         plt.yticks(fontsize=16)
         plt.title(key, fontsize=20)
         plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, 'mi_plots', '{}.png'.format(key)), bbox_inches='tight', pad_inches=0)
+        plt.savefig(os.path.join(save_dir, 'mi_plots', '{}.png'.format(key)),
+                    bbox_inches='tight', pad_inches=0)
         plt.close(fig)
   # ---------------------------------------
 
