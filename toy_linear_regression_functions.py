@@ -10,9 +10,9 @@ from matplotlib.offsetbox import AnchoredText
 matplotlib.rc('text', usetex=True)  # Activate latex text rendering
 
 
-# --------------------------------------------------------------------------------------------
-# ----------------------------------- Functions for Table 1 ----------------------------------
-# --------------------------------------------------------------------------------------------
+# -------------------------------------------------------------
+# ------------------- Functions for Table 1 -------------------
+# -------------------------------------------------------------
 def get_cov_z_with_noise(correlation, noise_level):
   """Covariance matrix for target with noise.
   """
@@ -116,9 +116,9 @@ def test_with_subspaces(cov_z_with_noise, A, W, cov_z_test_with_noise=None):
   print()
 
 
-# --------------------------------------------------------------------------------------------
-# -------- Functions for Figure 2: Dependence on noise level and training correlation --------
-# --------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Functions for Figure 2: Dependence on noise level and training correlation
+# --------------------------------------------------------------------------
 def get_ve(A, W, noise_level, correlation, test_correlation, subspaces, reference=False):
   """Wrapper for computing VE on training data + different test sets.
   """
@@ -244,9 +244,9 @@ def figure_noise_dependency():
   return f
 
 
-# --------------------------------------------------------------------------------------------
-# ------------ functions for Figure 3: Correlation of target, data and predictions -----------
-# --------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------
+# Functions for Figure 3: Correlation of target, data and predictions
+# -------------------------------------------------------------------
 def sample_z(num_samples, cov_z_with_noise):
   """Sample some data points for the target with noise
   """
@@ -326,31 +326,31 @@ def figure_correlations(x, z, W_regr, R_regr, W_uncond, R_uncond, W_cond, R_cond
                   r'\textbf{' + 'Prediction of uncond.' + r'}' + '\n' + r'\textbf{' + 'disentangled model' + r'}',
                   r'\textbf{' + 'Prediction of cond.' + r'}' + '\n' + r'\textbf{' + 'disentangled  model' + r'}']
     for ax_index in range(5):
-      axs[ax_index].set_title(title_list[ax_index], fontsize = 14)
+      axs[ax_index].set_title(title_list[ax_index], fontsize=14)
 
   # Add label for x and y axis
-  axs[0].set_xlabel(r'$\textrm{s}_1$', fontsize = 14)
-  axs[0].set_ylabel(r'$\textrm{s}_2$', fontsize = 14)
-  axs[1].set_xlabel(r'$\textrm{x}_1$', fontsize = 14)
-  axs[1].set_ylabel(r'$\textrm{x}_2$', fontsize = 14)
+  axs[0].set_xlabel(r'$\textrm{s}_1$', fontsize=14)
+  axs[0].set_ylabel(r'$\textrm{s}_2$', fontsize=14)
+  axs[1].set_xlabel(r'$\textrm{x}_1$', fontsize=14)
+  axs[1].set_ylabel(r'$\textrm{x}_2$', fontsize=14)
   for ax in axs[2:5]:
-    ax.set_xlabel(r'$\hat{\textrm{s}_1}$', fontsize = 14)
-    ax.set_ylabel(r'$\hat{\textrm{s}_2}$', fontsize = 14)
+    ax.set_xlabel(r'$\hat{\textrm{s}_1}$', fontsize=14)
+    ax.set_ylabel(r'$\hat{\textrm{s}_2}$', fontsize=14)
 
   return f
 
 
-# --------------------------------------------------------------------------------------------
-# ---------------------------------- functions for Figure 8a ---------------------------------
-# --------------------------------------------------------------------------------------------
+# -----------------------------------------------------------
+# ----------------- Functions for Figure 8a -----------------
+# -----------------------------------------------------------
 def scatterplot_visualisation(ax, data, arrow_s1, arrow_s2):
   """Make a scatterplot from the data + draw arrows for s1 and s2
   """
   ax.scatter(data[0], data[1], s=2, label="Train")
 
   # Draw arrows
-  ax.arrow(0, 0, arrow_s1[0], arrow_s1[1], head_width=0.15, color = 'red')
-  ax.arrow(0, 0, arrow_s2[0], arrow_s2[1], head_width=0.15, color = 'k')
+  ax.arrow(0, 0, arrow_s1[0], arrow_s1[1], head_width=0.15, color='red')
+  ax.arrow(0, 0, arrow_s2[0], arrow_s2[1], head_width=0.15, color='k')
 
   ax.set_ylim([-3, 3])
   ax.set_xlim([-3, 3])
@@ -405,7 +405,7 @@ def function_unconditional_optimum(correlation, noise_level, A):
   s1 = [1, 0]
   s2 = [0, 1]
 
-  f, axs = plt.subplots(1, 4, figsize = (12, 3))
+  fig, axs = plt.subplots(1, 4, figsize = (12, 3))
 
   # Transform s1 and s2 to data space x
   x_s1 = np.dot(A[:2, :2], s1)
@@ -419,33 +419,35 @@ def function_unconditional_optimum(correlation, noise_level, A):
   # SVD
   cov_x = multi_dot([A, cov_z_with_noise, A.T])
   W_svd, eigenvalues, _ = np.linalg.svd(cov_x)
-  scatterplot_visualisation_v(axs[1], 'svd', W_svd, A, x, x_s1, x_s2, cov_z_with_noise)
+  scatterplot_visualisation_v(axs[1], 'svd',
+                              W_svd, A, x, x_s1, x_s2, cov_z_with_noise)
 
   # Whitening
   white = np.sqrt(np.linalg.inv(np.diag(eigenvalues)))
   W_white = np.dot(white, W_svd)
-  scatterplot_visualisation_v(axs[2], '... + whitening', W_white, A, x, x_s1, x_s2, cov_z_with_noise)
+  scatterplot_visualisation_v(axs[2], '... + whitening',
+                              W_white, A, x, x_s1, x_s2, cov_z_with_noise)
 
   # Rotate whitened
   phi = - np.pi / 4
   orth = np.array([[np.cos(phi), -np.sin(phi)], [np.sin(phi), np.cos(phi)]])
   W_rotated = multi_dot([orth, white, W_svd])
-  scatterplot_visualisation_v(axs[3], '... + rotation by ' + r'$\phi_{opt}$', W_rotated, A, x, x_s1, x_s2, cov_z_with_noise)
+  scatterplot_visualisation_v(axs[3], '... + rotation by ' + r'$\phi_{opt}$',
+                              W_rotated, A, x, x_s1, x_s2, cov_z_with_noise)
 
-  f.tight_layout()
+  fig.tight_layout()
 
   # Add labels to the red (s_1) and black (s_2) arrows
   label_arrow(0.65, 0.38, 0.35, 0.7, axs[0])
   label_arrow(0.3, 0.25, 0.3, 0.7, axs[1])
   label_arrow(0.48, 0.25, 0.45, 0.75, axs[2])
   label_arrow(0.3, 0.3, 0.65, 0.7, axs[3])
-  return f
+  return fig
 
 
-# --------------------------------------------------------------------------------------------
-# ---------------------------------- functions for Figure 8b ---------------------------------
-# --------------------------------------------------------------------------------------------
-
+# -----------------------------------------------------------
+# ----------------- Functions for Figure 8b -----------------
+# -----------------------------------------------------------
 def vary_phi(correlation, noise_level, A):
   """Show VE in dependence of phi.
   """
@@ -464,7 +466,7 @@ def vary_phi(correlation, noise_level, A):
     _, ve = test_regression(cov_z_with_noise, A, W_new, R)
     ve_list.append(ve)
 
-  f = plt.figure()
+  fig = plt.figure()
   plt.plot(phis, ve_list, linewidth=2)
   plt.xticks([0, np.pi/2, np.pi, np.pi * 3/2, np.pi*2],
   [r'$0$', r'$\nicefrac{\pi}{2}$', r'$\pi$', r'$\nicefrac{3 \pi}{2}$', r'$2 \pi$'], fontsize=22)
@@ -473,5 +475,4 @@ def vary_phi(correlation, noise_level, A):
   plt.xlabel(r'$\phi$', fontsize=22)
   plt.ylabel("VE", fontsize=22)
   plt.legend()
-
-  return f
+  return fig
