@@ -6,7 +6,7 @@ python toy_evaluate_disentanglement.py
 """
 import os
 import sys
-import ipdb
+import pdb
 import random
 import argparse
 import itertools
@@ -22,7 +22,7 @@ from metrics import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--metrics', type=str, default='dci,irs,mig,sap_score,factor_vae,beta_vae,unsupervised',
-                    help='Comma-separated list of disentanglement metrics to measure (irs,sap,unsupervised,mig,fairness,factor_vae,dci,beta_vae')
+                    help='Comma-separated list of disentanglement metrics to measure')
 parser.add_argument('--train_correlation', type=float, default=0.0,
                     help='Use models trained with this correlation')
 parser.add_argument('--noise', type=float, default=0.0,
@@ -46,15 +46,17 @@ def get_translation(dim):
 
 
 def sample_z_classification(random_state, num_samples, noise_level, correlation, dim):
-  """Sample target for classification task with dim attributes. Thereby, each attribute (=dimension)
-  is correlated with each other attribute with correlation strength. Only for two dimensions it
-  is possible to reach correlations between -1 and 1. For multiple attributes, strong negative
-  correlations are impossible.
+  """Sample target for classification task with dim attributes. Thereby, each
+  attribute (=dimension) is correlated with each other attribute with correlation
+  strength. Only for two dimensions it is possible to reach correlations
+  between -1 and 1. For multiple attributes, strong negative correlations
+  are impossible.
   """
-  # We obtain the desired correlation, by making the combinations where all attributes are the
-  # same are less common (given by s1) compared to the other combinations of attribute values
-  # (given by s2). Thereby, we s1 and s2 depend on the number of attributes and the correlation
-  # strength (for 2 attributes s1=c1 and s2=c2):
+  # We obtain the desired correlation by making the combinations where all
+  # attributes are the same are less common (given by s1) compared to the other
+  # combinations of attribute values (given by s2). Thus, s1 and s2 depend on
+  # the number of attributes and the correlation strength (for the two
+  # attributes s1=c1 and s2=c2):
   c1 = 1 + correlation
   c2 = 1 - correlation
   n = 2**(dim - 2)
@@ -62,17 +64,17 @@ def sample_z_classification(random_state, num_samples, noise_level, correlation,
   s1 = c1 - (n-1) * s2
 
   if correlation >=0 or dim==2:
-    probabilities = np.ones(2**dim) * s2
-    probabilities[0] = s1
-    probabilities[-1] = s1
+    probs = np.ones(2**dim) * s2
+    probs[0] = s1
+    probs[-1] = s1
   else:
     print('WARNING: negative correlations not implemented for dim>2')
 
   # Normalize to get probabilities
-  probabilities /= sum(probabilities)
+  probs /= sum(probs)
 
   # Sample with these probabilities. There are 2**dim different combinations of attributes.
-  samples = random_state.choice(np.arange(2**dim), size=num_samples, p=probabilities)
+  samples = random_state.choice(np.arange(2**dim), size=num_samples, p=probs)
 
   # Translate the sampled values to attribute combinations. This is the target.
   translation = get_translation(dim)
@@ -85,7 +87,8 @@ def sample_z_classification(random_state, num_samples, noise_level, correlation,
 
 
 class DataSampler:
-  """Wrapper for the randomly-generated Gaussian dataset to support the same type of interface as GroundTruthData.
+  """Wrapper for the randomly-generated Gaussian dataset to support the same
+  type of interface as GroundTruthData.
 
   Mimics the interface from https://github.com/google-research/disentanglement_lib/blob/86a644d4ed35c771560dc3360756363d35477357/disentanglement_lib/data/ground_truth/ground_truth_data.py
   """
@@ -129,76 +132,92 @@ def compute_metrics(dataset, representation_function, random_state,
   metric_dict = {}
 
   if 'irs' in args.metrics:
-    metric_dict['irs'] = irs.compute_irs(dataset,
-                                         representation_function,
-                                         random_state,
-                                         num_train=num_train,
-                                         batch_size=batch_size,
-                                         diff_quantile=0.99)
+    metric_dict['irs'] = irs.compute_irs(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        batch_size=batch_size,
+        diff_quantile=0.99
+    )
 
   if 'sap' in args.metrics:
-    metric_dict['sap'] = sap_score.compute_sap(dataset,
-                                               representation_function,
-                                               random_state,
-                                               num_train=num_train,
-                                               num_test=num_test,
-                                               continuous_factors=False,
-                                               batch_size=batch_size)
+    metric_dict['sap'] = sap_score.compute_sap(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_test=num_test,
+        continuous_factors=False,
+        batch_size=batch_size
+    )
 
   if 'unsupervised' in args.metrics:
-    metric_dict['unsupervised'] = unsupervised_metrics.unsupervised_metrics(dataset,
-                                                                            representation_function,
-                                                                            random_state,
-                                                                            num_train=num_train,
-                                                                            batch_size=batch_size)
+    metric_dict['unsupervised'] = unsupervised_metrics.unsupervised_metrics(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        batch_size=batch_size
+    )
 
   if 'mig' in args.metrics:
-    metric_dict['mig'] = mig.compute_mig(dataset,
-                                         representation_function,
-                                         random_state,
-                                         num_train=num_train,
-                                         batch_size=batch_size)
+    metric_dict['mig'] = mig.compute_mig(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        batch_size=batch_size
+    )
 
   if 'fairness' in args.metrics:
-    metric_dict['fairness'] = fairness.compute_fairness(dataset,
-                                                        representation_function,
-                                                        random_state,
-                                                        num_train=num_train,
-                                                        num_test_points_per_class=100,
-                                                        artifact_dir=None,
-                                                        batch_size=batch_size)
+    metric_dict['fairness'] = fairness.compute_fairness(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_test_points_per_class=100,
+        artifact_dir=None,
+        batch_size=batch_size
+    )
 
   if 'factor_vae' in args.metrics:
-    metric_dict['factor_vae'] = factor_vae.compute_factor_vae(dataset,
-                                                              representation_function,
-                                                              random_state,
-                                                              num_train=num_train,
-                                                              num_eval=num_eval,
-                                                              num_variance_estimate=1000,
-                                                              batch_size=batch_size)
+    metric_dict['factor_vae'] = factor_vae.compute_factor_vae(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_eval=num_eval,
+        num_variance_estimate=1000,
+        batch_size=batch_size
+    )
 
   if 'dci' in args.metrics:
-    metric_dict['dci'] = dci.compute_dci(dataset,
-                                         representation_function,
-                                         random_state,
-                                         num_train=num_train,
-                                         num_test=num_eval,
-                                         batch_size=batch_size)
+    metric_dict['dci'] = dci.compute_dci(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_test=num_eval,
+        batch_size=batch_size
+    )
 
   if 'beta_vae' in args.metrics:
-    metric_dict['beta_vae'] = beta_vae.compute_beta_vae_sklearn(dataset,
-                                                                representation_function,
-                                                                random_state,
-                                                                num_train=num_train,
-                                                                num_eval=num_eval,
-                                                                batch_size=batch_size)
+    metric_dict['beta_vae'] = beta_vae.compute_beta_vae_sklearn(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_eval=num_eval,
+        batch_size=batch_size
+    )
 
   return metric_dict
 
 
-exp_paths = [(2, '/scratch/gobi1/pvicol/domain-adaptation/mi-branch-simplified/toy_cls_dim_2_noise_1.6681005372000592_corr_0.95_anticorr_0'),
-             (4, '/scratch/gobi1/pvicol/domain-adaptation/mi-branch-simplified/toy_cls_dim_4_noise_1.6681005372000592_corr_0.95_anticorr_0'),
-             (10, '/scratch/gobi1/pvicol/domain-adaptation/mi-branch-simplified/toy_cls_dim_10_noise_1.6681005372000592_corr_0.95_anticorr_0')
+exp_paths = [(2, 'saves/toy_cls/toy_cls_dim_2_noise_1.6681005372000592_corr_0.95_anticorr_0'),
+             (4, 'saves/toy_cls/toy_cls_dim_4_noise_1.6681005372000592_corr_0.95_anticorr_0'),
+             (10, 'saves/toy_cls/toy_cls_dim_10_noise_1.6681005372000592_corr_0.95_anticorr_0')
             ]
 
 for correlation in [0.0]:
@@ -222,12 +241,11 @@ for correlation in [0.0]:
       def representation_function(x):
         """Representation function for computing disentanglement metrics"""
         x = torch.from_numpy(x)
-        z = torch.mm(x, W)  # Switched the order of this mm because x is (100,2) with batch dimension first, and W is (2,2)
+        z = torch.mm(x, W)
         return z.detach().cpu().numpy()
 
       random_state = np.random.RandomState(3)
       data_sampler = DataSampler(dim=dim, noise_level=0.1, correlation=correlation)
-      current_factors, current_observations = data_sampler.sample(num=100, random_state=random_state)
 
       metric_dict = compute_metrics(data_sampler,
                                     representation_function,
@@ -237,7 +255,6 @@ for correlation in [0.0]:
                                     num_test=100000,
                                     batch_size=1000)
 
-      # print('Method: {}'.format(method_name))
       print('='*80)
       for key in metric_dict:
         print('\t{}: {}'.format(key, metric_dict[key]))
