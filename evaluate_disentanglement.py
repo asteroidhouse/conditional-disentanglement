@@ -16,26 +16,25 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 
 # Local imports
-import models
 import celeba
 from celeba import CELEBA_ATTRS
 from metrics import *
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--metrics', type=str, default='dci',
-                    help='Comma-separated list of disentanglement metrics to measure (irs,sap,unsupervised,mig,fairness,factor_vae,dci,beta_vae')
+parser.add_argument('--metrics', type=str, default='irs,sap,unsupervised,mig,fairness,factor_vae,dci,beta_vae',
+                    help='Comma-separated list of disentanglement metrics to measure')
 parser.add_argument('--train_correlation', type=float, default=0.0,
                     help='Use models trained with this correlation')
 
 parser.add_argument('--dataset_type', type=str, default='correlated1',
-                    help='Dataset type to load (dummy, conditioned, correlated1, correlated2)')
+                    help='Dataset type to load (conditioned, correlated1, correlated2)')
 parser.add_argument('--filter_variable', type=str, choices=CELEBA_ATTRS)
 parser.add_argument('--target_variable1', type=str, choices=CELEBA_ATTRS, default='Male',
                     help='First attribute name')
 parser.add_argument('--target_variable2', type=str, choices=CELEBA_ATTRS, default='Smiling',
                     help='Second attribute name')
-parser.add_argument('--model', type=str, default='mlp', choices=['mlp', 'resnet'],
+parser.add_argument('--model', type=str, default='mlp',
                     help='Model')
 parser.add_argument('--nhid', type=int, default=50,
                     help='Number of hidden units per layer of the MLP')
@@ -127,88 +126,101 @@ class DataSampler:
 
 # Compute disentanglement metrics
 # --------------------------------------------------------
-def compute_metrics(dataset, representation_function, random_state, num_train, num_eval, num_test, batch_size):
+def compute_metrics(dataset, representation_function, random_state, num_train,
+                    num_eval, num_test, batch_size):
   metric_dict = {}
 
   if 'irs' in args.metrics:
-    metric_dict['irs'] = irs.compute_irs(dataset,
-                                         representation_function,
-                                         random_state,
-                                         num_train=num_train,
-                                         batch_size=batch_size,
-                                         diff_quantile=0.99)
+    metric_dict['irs'] = irs.compute_irs(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        batch_size=batch_size,
+        diff_quantile=0.99
+    )
 
   if 'sap' in args.metrics:
-    metric_dict['sap'] = sap_score.compute_sap(dataset,
-                                               representation_function,
-                                               random_state,
-                                               num_train=num_train,
-                                               num_test=num_test,
-                                               continuous_factors=False,
-                                               batch_size=batch_size)
+    metric_dict['sap'] = sap_score.compute_sap(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_test=num_test,
+        continuous_factors=False,
+        batch_size=batch_size
+    )
 
   if 'unsupervised' in args.metrics:
-    metric_dict['unsupervised'] = unsupervised_metrics.unsupervised_metrics(dataset,
-                                                                            representation_function,
-                                                                            random_state,
-                                                                            num_train=num_train,
-                                                                            batch_size=batch_size)
+    metric_dict['unsupervised'] = unsupervised_metrics.unsupervised_metrics(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        batch_size=batch_size
+    )
 
   if 'mig' in args.metrics:
-    metric_dict['mig'] = mig.compute_mig(dataset,
-                                         representation_function,
-                                         random_state,
-                                         num_train=num_train,
-                                         batch_size=batch_size)
+    metric_dict['mig'] = mig.compute_mig(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        batch_size=batch_size
+    )
 
   if 'fairness' in args.metrics:
-    metric_dict['fairness'] = fairness.compute_fairness(dataset,
-                                                        representation_function,
-                                                        random_state,
-                                                        num_train=num_train,
-                                                        num_test_points_per_class=100,
-                                                        artifact_dir=None,
-                                                        batch_size=batch_size)
+    metric_dict['fairness'] = fairness.compute_fairness(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_test_points_per_class=100,
+        artifact_dir=None,
+        batch_size=batch_size
+    )
 
   if 'factor_vae' in args.metrics:
-    metric_dict['factor_vae'] = factor_vae.compute_factor_vae(dataset,
-                                                              representation_function,
-                                                              random_state,
-                                                              num_train=num_train,
-                                                              num_eval=num_eval,
-                                                              num_variance_estimate=1000,
-                                                              batch_size=batch_size)
+    metric_dict['factor_vae'] = factor_vae.compute_factor_vae(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_eval=num_eval,
+        num_variance_estimate=1000,
+        batch_size=batch_size
+    )
 
   if 'dci' in args.metrics:
-    metric_dict['dci'] = dci.compute_dci(dataset,
-                                         representation_function,
-                                         random_state,
-                                         num_train=num_train,
-                                         num_test=num_eval,
-                                         batch_size=batch_size)
+    metric_dict['dci'] = dci.compute_dci(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_test=num_eval,
+        batch_size=batch_size
+    )
 
   if 'beta_vae' in args.metrics:
-    metric_dict['beta_vae'] = beta_vae.compute_beta_vae_sklearn(dataset,
-                                                                representation_function,
-                                                                random_state,
-                                                                num_train=num_train,
-                                                                num_eval=num_eval,
-                                                                batch_size=batch_size)
+    metric_dict['beta_vae'] = beta_vae.compute_beta_vae_sklearn(
+        dataset,
+        representation_function,
+        random_state,
+        num_train=num_train,
+        num_eval=num_eval,
+        batch_size=batch_size
+    )
 
   return metric_dict
 
 
 # Load a trained model
 # --------------------
-exp_paths = [('cls', '/scratch/gobi1/pvicol/domain-adaptation/mi-branch/isa/celeba_cls_corr_grid_male_smiling_5/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3'),
-             ('uncond', '/scratch/gobi1/pvicol/domain-adaptation/mi-branch/isa/celeba_uncond_corr_grid_male_smiling_6/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:unconditional-dl:10.0-cls:1-s:3'),
-             ('cond', '/scratch/gobi1/pvicol/domain-adaptation/mi-branch/isa/celeba_cond_corr_grid_male_smiling_5/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:conditional-dl:10.0-cls:1-s:3')
+exp_paths = [('cls', 'saves/celeba/celeba_cls_corr_grid_male_smiling_5/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3'),
+             ('uncond', 'saves/celeba/celeba_uncond_corr_grid_male_smiling_6/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:unconditional-dl:10.0-cls:1-s:3'),
+             ('cond', 'saves/celeba/celeba_cond_corr_grid_male_smiling_5/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:conditional-dl:10.0-cls:1-s:3')
             ]
 # --------------------
-
-model = models.MLP(input_dim=64*64*3, hidden_dim=args.nhid, output_dim=args.z_dim)
-model = model.to(use_device)
-model.eval()
 
 for correlation in [0.0, 0.2, 0.4, 0.6, 0.8]:
   print('%' * 90)
