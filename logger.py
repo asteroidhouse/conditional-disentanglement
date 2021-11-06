@@ -1,3 +1,5 @@
+"""A simple CSV logger.
+"""
 import csv
 
 class CSVLogger():
