@@ -14,9 +14,11 @@ def data_subset_indices(dataset, classes):
       targets = torch.from_numpy(np.array(dataset.targets))
     else:
       targets = dataset.targets
-    subset_indexes = torch.cat([torch.where(targets == c)[0] for c in classes])  # If the dataset has "targets"
+      # If the dataset has "targets"
+    subset_indexes = torch.cat([torch.where(targets == c)[0] for c in classes])
   except:
-    subset_indexes = np.concatenate([np.where(dataset.labels == c)[0] for c in classes])   # If the dataset has "labels"
+    # If the dataset has "labels"
+    subset_indexes = np.concatenate([np.where(dataset.labels == c)[0] for c in classes])
   return subset_indexes
 
 
@@ -29,12 +31,14 @@ def get_cls_idx_dict(dataset):
       targets = dataset.targets
 
     classes = torch.unique(targets).numpy()
-    cls_to_idxs = { c: torch.where(targets == c)[0] for c in classes }  # If the dataset has "targets"
+    # If the dataset has "targets"
+    cls_to_idxs = { c: torch.where(targets == c)[0] for c in classes }
   except:
     try:
       classes = np.unique(dataset.labels)
-      cls_to_idxs = { c: np.where(dataset.labels == c)[0] for c in classes }   # If the dataset has "labels"
+      cls_to_idxs = { c: np.where(dataset.labels == c)[0] for c in classes }
     except:
+      # If the dataset has "labels"
       classes = np.unique(dataset)
       cls_to_idxs = { c: np.where(dataset == c)[0] for c in classes }
   return cls_to_idxs
@@ -48,8 +52,9 @@ def generate_occlusion_mask(t, occlusion_patch_size, image_size=32):
 
 
 class Dataset(torch.utils.data.Dataset):
-  def __init__(self, data, label, classes=None, c_to_i=None, i_to_c=None, transform=None, target_transform=None,
-               corr_matrix=None, noise=0.0, occlusion_patch_size=4):
+  def __init__(self, data, label, classes=None, c_to_i=None, i_to_c=None,
+               transform=None, target_transform=None, corr_matrix=None,
+               noise=0.0, occlusion_patch_size=4):
     self.transform = transform
     self.target_transform = target_transform
     self.data = data
@@ -64,7 +69,8 @@ class Dataset(torch.utils.data.Dataset):
 
   def __getitem__(self, index):
     possible_combos = list(itertools.product(self.possible_classes, self.possible_classes))
-    combo_idx = np.random.choice(np.arange(len(possible_combos)), p=self.corr_matrix.reshape(-1))
+    combo_idx = np.random.choice(np.arange(len(possible_combos)),
+                                 p=self.corr_matrix.reshape(-1))
     left_class, right_class = possible_combos[combo_idx]
 
     left_image_idx = np.random.choice(list(self.cls_idx_dict[left_class]))
@@ -259,7 +265,8 @@ def sample_z(num_samples, correlation, dim):
   return z
 
 
-def get_correlated_data_multi(dataset, classes, dim, train_corr, test_corr, noise, occlusion_patch_size=4):
+def get_correlated_data_multi(dataset, classes, dim, train_corr, test_corr,
+                              noise, occlusion_patch_size=4):
   NUM_TRAIN = 50000
 
   if dataset == 'mnist':
