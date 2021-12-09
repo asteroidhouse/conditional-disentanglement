@@ -28,10 +28,11 @@ import matplotlib
 matplotlib.rc('text', usetex=True)  # Activate latex text rendering
 
 
-save_dir = 'saves/linear_classification'
+save_dir = 'saves/linear_classification/'
 if not os.path.exists(save_dir):
   os.makedirs(save_dir)
 
+#use_device = 'cpu'
 use_device = 'cuda:0'
 N = 10000
 criterion_classification = nn.BCEWithLogitsLoss()
@@ -605,8 +606,8 @@ def plot_noise_dependency(ax, x, results, reference=None):
   color_test = colors[1]
 
   # Plot performance for training and test
-  ax.plot(x, results[:, 0], linewidth=2, color=color_train)
-  ax.plot(x, results[:, 1], linewidth=2, color=color_test)
+  ax.plot(x, results[:, 0], linewidth=2, color=color_train, marker='o', markersize=3)
+  ax.plot(x, results[:, 1], linewidth=2, color=color_test, marker='o', markersize=3)
   # Plot max and min for test sets
   ax.fill_between(x, results[:, 2], results[:, 3], color=color_test, alpha=.1)
 
@@ -614,9 +615,9 @@ def plot_noise_dependency(ax, x, results, reference=None):
     ax.plot(x, reference[:, 1], linewidth=1, color='black', linestyle='dashed')
 
   ax.set_xscale('log')
-  ax.set_ylim([0.3, 1.1])
+  ax.set_ylim([0.45, 1.05])
   ax.set_yticks([0.5, 1])
-  ax.tick_params(axis='both', which='both', labelsize=16)
+  ax.tick_params(axis='both', which='both', labelsize=18)
 
 
 def figure_noise_dependency(dim):
@@ -656,7 +657,7 @@ def figure_noise_dependency(dim):
     np.save(os.path.join(subfolder, 'list_correlation.npy'), list_correlation)
 
   num_correlations = len(list_correlation)
-  fig, axs = plt.subplots(num_correlations, 3, figsize = (10, 8), sharex='all', sharey='all')
+  fig, axs = plt.subplots(num_correlations, 3, figsize = (10, 6.5), sharex='all', sharey='all')
   for col in range(3):
     for row in range(num_correlations):
       plot_noise_dependency(axs[row, col],
@@ -668,21 +669,21 @@ def figure_noise_dependency(dim):
       if row == len(list_correlation) - 1:
         ylabel += "Accuracy"
       axs[row, 0].set_ylabel(ylabel)
-  axs[0, 0].set_title(r'\textbf{Classification}', fontsize=20)
-  axs[0, 1].set_title(r'\textbf{Unconditional}', fontsize=20)
-  axs[0, 2].set_title(r'\textbf{Conditional}', fontsize=20)
+  axs[0, 0].set_title(r'\textbf{Base}', fontsize=22)
+  axs[0, 1].set_title(r'\textbf{Base + MI}', fontsize=22)
+  axs[0, 2].set_title(r'\textbf{Base + CMI}', fontsize=22)
 
   for i in range(3):
-    axs[-1, i].set_xlabel('Noise Level', fontsize=18)
+    axs[-1, i].set_xlabel('Noise Level', fontsize=22)
 
   extra_labels = []
   for j in range(num_correlations):
-    lbl = axs[j, 0].set_ylabel(r'\textbf{' + 'Corr = {}'.format(list_correlation[j]) + r'}' + '\n\nAccuracy',
+    lbl = axs[j, 0].set_ylabel(r'\textbf{' + 'Corr = {}'.format(list_correlation[j]) + r'}' + '\n\n\huge{Accuracy}',
                                fontsize=18)
     extra_labels.append(lbl)
 
-  lgd = fig.legend(['Training', 'Uncorrelated', 'Reference'],
-                   bbox_to_anchor=(0.15, 0.95, 1., .102),
+  lgd = fig.legend(['Correlated Training', 'Uncorrelated Test', 'Reference'],
+                   bbox_to_anchor=(0.02, 0.95, 1., .102),
                    loc='lower left',
                    ncol=3,
                    borderaxespad=0.,

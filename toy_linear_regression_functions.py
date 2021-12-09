@@ -196,9 +196,9 @@ def plot_noise_dependency(ax, correlation, loss_type, A, list_noise_level):
   ax.fill_between(list_noise_level, results[:, 3], results[:, 4], color=color_test, alpha=.1)
 
   ax.set_xscale('log')
-  ax.set_ylim([-0.4, 1.1])
+  ax.set_ylim([-0.2, 1.1])
   ax.set_yticks([0, 1])
-  ax.tick_params(axis='both', which='both', labelsize=16)
+  ax.tick_params(axis='both', which='both', labelsize=18)
 
 
 def figure_noise_dependency():
@@ -206,13 +206,13 @@ def figure_noise_dependency():
   Each subplot shows the VE in dependence of noise level.
   """
   list_noise_level = np.logspace(-2, 2, 30)
-  list_correlation = [0, 0.6, 0.95]
+  list_correlation = [0.0, 0.6, 0.95]
   num_correlations = len(list_correlation)
   list_loss_type = ['regression', 'unconditional', 'conditional']
   A = np.eye(2)
   A = np.block([[A, np.eye(2)]])
 
-  f, axs = plt.subplots(num_correlations, 3, figsize = (10, 8), sharex='all', sharey='all')
+  f, axs = plt.subplots(num_correlations, 3, figsize = (10, 6.5), sharex='all', sharey='all')
   for col in range(3):
     for row in range(num_correlations):
       plot_noise_dependency(ax=axs[row, col],
@@ -221,20 +221,20 @@ def figure_noise_dependency():
                             A=A,
                             list_noise_level=list_noise_level)
 
-  axs[0, 0].set_title(r'\textbf{Classification}', fontsize=20)
-  axs[0, 1].set_title(r'\textbf{Unconditional}', fontsize=20)
-  axs[0, 2].set_title(r'\textbf{Conditional}', fontsize=20)
+  axs[0, 0].set_title(r'\textbf{Base}', fontsize=22)
+  axs[0, 1].set_title(r'\textbf{Base + MI}', fontsize=22)
+  axs[0, 2].set_title(r'\textbf{Base + CMI}', fontsize=22)
 
   for i in range(3):
-    axs[-1, i].set_xlabel('Noise Level', fontsize=18)
+    axs[-1, i].set_xlabel('Noise Level', fontsize=22)
 
   extra_labels = []
   for j in range(num_correlations):
-    lbl = axs[j, 0].set_ylabel(r'\textbf{' + 'Corr = {}'.format(list_correlation[j]) + r'}' + '\n\nVE', fontsize=18)
+    lbl = axs[j, 0].set_ylabel(r'\textbf{' + 'Corr = {}'.format(list_correlation[j]) + r'}' + '\n\n\huge{VE}', fontsize=18)
     extra_labels.append(lbl)
 
-  lgd = f.legend(['Training', 'Uncorrelated', 'Reference'],
-                  bbox_to_anchor=(0.15, 0.95, 1., .102),
+  lgd = f.legend(['Correlated Training', 'Uncorrelated Test', 'Reference'],
+                  bbox_to_anchor=(0.02, 0.95, 1., .102),
                   loc='lower left',
                   ncol=3,
                   borderaxespad=0.,
@@ -320,11 +320,11 @@ def figure_correlations(x, z, W_regr, R_regr, W_uncond, R_uncond, W_cond, R_cond
 
   # Add title
   if title:
-    title_list = ['target',
-                  'data',
-                  r'\textbf{' + 'Prediction of pure' + r'}' + '\n' + r'\textbf{' + 'regression model' + r'}',
-                  r'\textbf{' + 'Prediction of uncond.' + r'}' + '\n' + r'\textbf{' + 'disentangled model' + r'}',
-                  r'\textbf{' + 'Prediction of cond.' + r'}' + '\n' + r'\textbf{' + 'disentangled  model' + r'}']
+    title_list = [r'\textbf{Target}', 
+                  r'\textbf{Data}',
+                  r'\textbf{' + 'Predictions of' + r'}' + '\n' + r'\textbf{' + 'Base' + r'}',
+                  r'\textbf{' + 'Predictions of' + r'}' + '\n' + r'\textbf{' + 'Base + MI' + r'}',
+                  r'\textbf{' + 'Predictions of' + r'}' + '\n' + r'\textbf{' + 'Base + CMI' + r'}']
     for ax_index in range(5):
       axs[ax_index].set_title(title_list[ax_index], fontsize=14)
 

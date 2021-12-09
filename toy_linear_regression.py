@@ -75,9 +75,9 @@ test_without_subspaces(cov_z_with_noise, A, W_regr,
 
 #### Figure 2: Dependence on noise level and training correlation
 fig = figure_noise_dependency()
-fig.savefig(os.path.join(save_dir, 'A_is_identity.pdf'),
+fig.savefig(os.path.join(save_dir, 'Regression_noise_dependency.pdf'),
             bbox_inches='tight', pad_inches=0)
-fig.savefig(os.path.join(save_dir, 'A_is_identity.png'),
+fig.savefig(os.path.join(save_dir, 'Regression_noise_dependency.png'),
             bbox_inches='tight', pad_inches=0)
 
 
@@ -128,6 +128,7 @@ fig.savefig(os.path.join(save_dir, 'correlation_of_predictions_test.png'),
 
 # Figure 8 (for the appendix)
 
+# left part (Figure 8a)
 correlation = 0.8
 noise_level = 0.1
 A = np.block([[np.eye(2), np.eye(2)]])
