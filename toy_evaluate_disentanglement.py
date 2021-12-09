@@ -45,7 +45,47 @@ def get_translation(dim):
   return np.array(list(itertools.product(*all_list)))
 
 
-def sample_z_classification(random_state, num_samples, noise_level, correlation, dim):
+def sample_s_classification(num_samples, noise_level, correlation, dim):
+  """Sample target for classification task with dim attributes. Thereby, each
+  attribute (=dimension) is correlated with each other attribute with correlation
+  strength. Only for two dimensions it is possible to reach correlations
+  between -1 and 1. For multiple attributes, strong negative correlations
+  are impossible.
+  """
+  # We obtain the desired correlation, by making the combinations where all attributes are the
+  # same are less common (given by t1) compared to the other combinations of attribute values
+  # (given by t2). Thereby, we t1 and t2 depend on the number of attributes and the correlation
+  # strength (for 2 attributes t1=c1 and t2=c2):
+  c1 = 1 + correlation
+  c2 = 1 - correlation
+  n = 2 ** (dim - 2)
+  t2 = c2 / n
+  t1 = c1 - (n-1) * t2
+
+  if (correlation >= 0) or (dim == 2):
+    probs = np.ones(2**dim) * t2
+    probs[0] = t1
+    probs[-1] = t1
+  else:
+    print('WARNING: negative correlations not implemented for dim>2')
+
+  # normalize to get probabilities:
+  probs /= sum(probs)
+
+  # sample with these probabilities. There are 2**dim different combinations of attributes.
+  samples = np.random.choice(np.arange(2**dim), size=num_samples, p=probs)
+
+  # Translate the sampled values to attribute combinations. This is the target.
+  translation = get_translation(dim)
+  s = translation[list(samples)].T
+
+  # Add noise
+  epsilon = np.random.randn(dim, s.shape[1]) * np.sqrt(noise_level)
+  s_and_noise = np.vstack((s, epsilon))
+  return s, s_and_noise
+
+
+def sample_s_classification(random_state, num_samples, noise_level, correlation, dim):
   """Sample target for classification task with dim attributes. Thereby, each
   attribute (=dimension) is correlated with each other attribute with correlation
   strength. Only for two dimensions it is possible to reach correlations
@@ -53,20 +93,20 @@ def sample_z_classification(random_state, num_samples, noise_level, correlation,
   are impossible.
   """
   # We obtain the desired correlation by making the combinations where all
-  # attributes are the same are less common (given by s1) compared to the other
-  # combinations of attribute values (given by s2). Thus, s1 and s2 depend on
+  # attributes are the same are less common (given by t1) compared to the other
+  # combinations of attribute values (given by t2). Thus, t1 and t2 depend on
   # the number of attributes and the correlation strength (for the two
-  # attributes s1=c1 and s2=c2):
+  # attributes t1=c1 and t2=c2):
   c1 = 1 + correlation
   c2 = 1 - correlation
   n = 2**(dim - 2)
-  s2 = c2 / n
-  s1 = c1 - (n-1) * s2
+  t2 = c2 / n
+  t1 = c1 - (n-1) * t2
 
   if correlation >=0 or dim==2:
-    probs = np.ones(2**dim) * s2
-    probs[0] = s1
-    probs[-1] = s1
+    probs = np.ones(2**dim) * t2
+    probs[0] = t1
+    probs[-1] = t1
   else:
     print('WARNING: negative correlations not implemented for dim>2')
 
@@ -78,12 +118,12 @@ def sample_z_classification(random_state, num_samples, noise_level, correlation,
 
   # Translate the sampled values to attribute combinations. This is the target.
   translation = get_translation(dim)
-  z = translation[list(samples)].T
+  s = translation[list(samples)].T
 
   # Add noise
-  epsilon = random_state.randn(dim, z.shape[1]) * np.sqrt(noise_level)
-  z_and_noise = np.vstack((z, epsilon))
-  return z, z_and_noise
+  epsilon = random_state.randn(dim, s.shape[1]) * np.sqrt(noise_level)
+  s_and_noise = np.vstack((s, epsilon))
+  return s, s_and_noise
 
 
 class DataSampler:
@@ -98,10 +138,10 @@ class DataSampler:
     self.noise_level = noise_level
     self.correlation = correlation
 
-  def sample_observations_from_factors(self, z, random_state):
-    epsilon = random_state.randn(*z.shape) * np.sqrt(self.noise_level)
-    z_and_noise = np.concatenate((z, epsilon), axis=1)
-    x = np.dot(A, z_and_noise.T).T
+  def sample_observations_from_factors(self, s, random_state):
+    epsilon = random_state.randn(*s.shape) * np.sqrt(self.noise_level)
+    s_and_noise = np.concatenate((s, epsilon), axis=1)
+    x = np.dot(A, s_and_noise.T).T
     return x.astype('float32')
 
   def sample_factors(self, num, random_state):
@@ -111,18 +151,18 @@ class DataSampler:
     return self.sample(num, random_state)[1]
 
   def sample(self, num, random_state):
-    z, z_and_noise = sample_z_classification(random_state,
+    s, s_and_noise = sample_s_classification(random_state,
                                              num,
                                              noise_level=self.noise_level,
                                              correlation=self.correlation,
                                              dim=self.dim)
-    x = np.dot(A, z_and_noise)
+    x = np.dot(A, s_and_noise)
 
     # Take transposes to convert (2,100) --> (100,2) since
     # the batch dimension needs to come first
-    z = z.T
+    s = s.T
     x = x.T
-    return z.astype('float32'), x.astype('float32')
+    return s.astype('float32'), x.astype('float32')
 
 
 # Compute disentanglement metrics
