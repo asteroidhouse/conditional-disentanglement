@@ -32,8 +32,8 @@ save_dir = 'saves/linear_classification/'
 if not os.path.exists(save_dir):
   os.makedirs(save_dir)
 
-#use_device = 'cpu'
-use_device = 'cuda:0'
+use_device = 'cpu'
+#use_device = 'cuda:0'
 N = 10000
 criterion_classification = nn.BCEWithLogitsLoss()
 
@@ -45,17 +45,17 @@ def forward_generator(x, W, R, dim):
   """Compute predictions given W and R
   """
   z = torch.mm(W, x)
-  s_hat = []
+  a_hat = []
   for d in range(dim):
-    s_hat.append(R[d:d+1] * z[d:d+1])
-  s_hat = torch.cat((s_hat))
-  return s_hat
+    a_hat.append(R[d:d+1] * z[d:d+1])
+  a_hat = torch.cat((a_hat))
+  return a_hat
 
 
-def compute_x(A, s):
+def compute_x(A, a):
   """Compute data from target.
   """
-  x = np.dot(A, s)
+  x = np.dot(A, a)
   return x
 
 
@@ -66,7 +66,7 @@ def get_translation(dim):
   return np.array(list(itertools.product(*all_list)))
 
 
-def sample_s_classification(num_samples, noise_level, correlation, dim):
+def sample_a_classification(num_samples, noise_level, correlation, dim):
   """Sample target for classification task with dim attributes. Thereby, each
   attribute (=dimension) is correlated with each other attribute with correlation
   strength. Only for two dimensions it is possible to reach correlations
@@ -98,12 +98,12 @@ def sample_s_classification(num_samples, noise_level, correlation, dim):
 
   # Translate the sampled values to attribute combinations. This is the target.
   translation = get_translation(dim)
-  s = translation[list(samples)].T
+  a = translation[list(samples)].T
 
   # Add noise
-  epsilon = np.random.randn(dim, s.shape[1]) * np.sqrt(noise_level)
-  s_and_noise = np.vstack((s, epsilon))
-  return s, s_and_noise
+  epsilon = np.random.randn(dim, a.shape[1]) * np.sqrt(noise_level)
+  a_and_noise = np.vstack((a, epsilon))
+  return a, a_and_noise
 
 
 class Net(nn.Module):
@@ -277,13 +277,13 @@ class ConditionalDiscriminator():
     return self.criterion(pred_reals, label_reals)
 
 
-def get_classification_accuracy(s_hat, s_discret):
-  s_hat_discret = (s_hat > 0).float()
-  correct = (s_hat_discret == s_discret).float().mean()
+def get_classification_accuracy(a_hat, a_discret):
+  a_hat_discret = (a_hat > 0).float()
+  correct = (a_hat_discret == a_discret).float().mean()
   return correct.item()
 
 
-def minimize(x, s, loss_terms, dim):
+def minimize(x, a, loss_terms, dim):
   """Minimize loss. loss_terms defines which loss term to use
   (pure classification/ unconditional independence / conditional independence).
   """
@@ -328,11 +328,11 @@ def minimize(x, s, loss_terms, dim):
         steps = 8000
       else:
         steps = 1
-      s_discret = (s > 0).float()
+      a_discret = (a > 0).float()
       discr_list = []
       for d in range(dim):
-        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, -1, s=s_discret))
-        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, 1, s=s_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, -1, a=a_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, 1, a=a_discret))
 
     optimizer = optim.Adam([W, R], lr=lr_gen)
     optimizer_for_R = optim.Adam([R], lr=lr_regr)
@@ -373,12 +373,12 @@ def minimize(x, s, loss_terms, dim):
           weight_disentanglement = 1000
 
       optimizer.zero_grad()
-      s_hat = forward_generator(x, W, R, dim)
+      a_hat = forward_generator(x, W, R, dim)
 
-      s_discret = (s > 0).float()
+      a_discret = (a > 0).float()
       loss_classification = 0
       for d in range(dim):
-        loss_classification += criterion_classification(s_hat[d], s_discret[d])
+        loss_classification += criterion_classification(a_hat[d], a_discret[d])
       loss = loss_classification / dim
 
       if loss_terms == 'classification_unconditional':
@@ -403,12 +403,12 @@ def minimize(x, s, loss_terms, dim):
       # Take a few extra steps to adapt R
       for _ in range(10):
         optimizer_for_R.zero_grad()
-        s_hat = forward_generator(x, W, R, dim)
+        a_hat = forward_generator(x, W, R, dim)
 
         loss_classification_inner = 0
-        s_discret = (s > 0).float()
+        a_discret = (a > 0).float()
         for d in range(dim):
-          loss_classification_inner  += criterion_classification(s_hat[d], s_discret[d])
+          loss_classification_inner  += criterion_classification(a_hat[d], a_discret[d])
         loss_classification_inner  = loss_classification_inner  / dim
         loss_classification_inner.backward()
 
@@ -433,8 +433,8 @@ def minimize(x, s, loss_terms, dim):
     elif loss_terms == 'classification_conditional':
       discr_list = []
       for d in range(dim):
-        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, -1, s=s_discret))
-        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, 1, s=s_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, -1, s=a_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, 1, s=a_discret))
       loss_discriminator = 0
       for discr in discr_list:
         loss_discriminator += discr.train(z = torch.mm(W.detach(), x), num_i_inner=1000)
@@ -446,7 +446,7 @@ def minimize(x, s, loss_terms, dim):
 
     # If result is good enough return it. Otherwise try another learning rate
     if loss_terms == 'classification_unconditional':
-      tmp =  np.corrcoef(s_hat.cpu().detach().numpy())
+      tmp =  np.corrcoef(a_hat.cpu().detach().numpy())
       corrcoeff_shat = (tmp.sum() - np.diag(tmp).sum()) / (dim**2 - dim)
       if loss_discriminator > 0.65 and np.abs(corrcoeff_shat < 0.15):
         return W, R, loss_classification_inner.detach().cpu().numpy(), loss_discriminator, lr_discr
@@ -458,30 +458,30 @@ def minimize(x, s, loss_terms, dim):
 def test_classification(correlation, noise_level, A, W, R, dim):
   """Compute classification accuracy averaged over all attributes.
   """
-  s, s_and_noise = sample_s_classification(N, noise_level, correlation, dim=dim)
-  x = compute_x(A, s_and_noise)
+  a, a_and_noise = sample_a_classification(N, noise_level, correlation, dim=dim)
+  x = compute_x(A, a_and_noise)
   x = torch.Tensor(x).to(use_device)
-  s = torch.Tensor(s).to(use_device)
-  s_hat = forward_generator(x, W, R, dim)
+  a = torch.Tensor(a).to(use_device)
+  a_hat = forward_generator(x, W, R, dim)
 
-  s_discret = (s > 0).float()
+  a_discret = (a > 0).float()
   classification_accuracy = 0
   for d in range(dim):
-    classification_accuracy += get_classification_accuracy(s_hat[d], s_discret[d])
+    classification_accuracy += get_classification_accuracy(a_hat[d], a_discret[d])
   return classification_accuracy / dim
 
 
 def get_results(correlation, noise_level, A, anti_correlation, loss_terms, dim, filename):
   """Get accuracy on training data, test data and min/max for a sweep over correlations
   """
-  s, s_and_noise = sample_s_classification(N, noise_level, correlation, dim)
-  x = compute_x(A, s_and_noise)
+  a, a_and_noise = sample_a_classification(N, noise_level, correlation, dim)
+  x = compute_x(A, a_and_noise)
 
   x = torch.Tensor(x).to(use_device)
-  s = torch.Tensor(s).to(use_device)
+  a = torch.Tensor(a).to(use_device)
   A = torch.Tensor(A)
 
-  W, R, final_cls_loss, final_discr_loss, lr_discr = minimize(x, s, loss_terms, dim)
+  W, R, final_cls_loss, final_discr_loss, lr_discr = minimize(x, a, loss_terms, dim)
 
   # Save the final W and R values resulting from the minimization, so that we can later load/evaluate them
   base_save_dir = 'toy_cls_dim_{}_noise_{}_corr_{}_anticorr_{}'.format(
@@ -496,10 +496,10 @@ def get_results(correlation, noise_level, A, anti_correlation, loss_terms, dim, 
   res_anti = test_classification(anti_correlation, noise_level, A, W, R, dim)
 
   # save res to csv
-  s_hat = forward_generator(x, W, R, dim)
+  a_hat = forward_generator(x, W, R, dim)
   tmp =  np.corrcoef(x.cpu().detach().numpy())
   corrcoeff_x = (tmp.sum() - np.diag(tmp).sum()) / (dim**2 - dim)
-  tmp =  np.corrcoef(s_hat.cpu().detach().numpy())
+  tmp =  np.corrcoef(a_hat.cpu().detach().numpy())
   corrcoeff_shat = (tmp.sum() - np.diag(tmp).sum()) / (dim**2 - dim)
   optimal_W = list(W.flatten().detach().cpu().numpy())
   fields = [loss_terms,
@@ -709,17 +709,17 @@ def plot_input_data_distribution():
   for noise_idx, noise_level in enumerate(list_noise_level):
     for corr_idx, correlation in enumerate(list_correlation):
       ax = axs[corr_idx, noise_idx]
-      s, s_and_noise = sample_s_classification(2000, noise_level, correlation, dim=2)
+      a, a_and_noise = sample_a_classification(2000, noise_level, correlation, dim=2)
       A = get_A(2)
-      x = compute_x(A, s_and_noise)
+      x = compute_x(A, a_and_noise)
       x1 = x[0]
       x2 = x[1]
 
-      corr_s1 = s[0]
-      corr_s2 = s[1]
+      corr_a1 = a[0]
+      corr_a2 = a[1]
 
       for i, setting in enumerate(itertools.product([-1, 1], [-1, 1])):
-        idxs = (corr_s1 == setting[0]) & (corr_s2 == setting[1])
+        idxs = (corr_a1 == setting[0]) & (corr_a2 == setting[1])
 
         sel_corr_x1 = x1[idxs]
         sel_corr_x2 = x2[idxs]
@@ -751,14 +751,14 @@ def plot_input_data_distribution():
 
 
 if __name__ == '__main__':
-  print('dim = ', sys.argv[1])
-  dim = int(sys.argv[1])
+  #print('dim = ', sys.argv[1])
+  dim = 2#int(sys.argv[1])
   if dim == 2:
     plot_input_data_distribution()
 
-  job_id = int(sys.argv[2])
+  job_id = 2#int(sys.argv[2])
   verbose = False
-  load = False # if the results are already there and you want to load them for making the figure
+  load = True # if the results are already there and you want to load them for making the figure
   adaptiveweight = 'fix100'
 
   # Initialize from result of optimal classification (otherwise init from identity)

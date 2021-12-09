@@ -45,7 +45,7 @@ def get_translation(dim):
   return np.array(list(itertools.product(*all_list)))
 
 
-def sample_s_classification(num_samples, noise_level, correlation, dim):
+def sample_a_classification(num_samples, noise_level, correlation, dim):
   """Sample target for classification task with dim attributes. Thereby, each
   attribute (=dimension) is correlated with each other attribute with correlation
   strength. Only for two dimensions it is possible to reach correlations
@@ -77,15 +77,15 @@ def sample_s_classification(num_samples, noise_level, correlation, dim):
 
   # Translate the sampled values to attribute combinations. This is the target.
   translation = get_translation(dim)
-  s = translation[list(samples)].T
+  a = translation[list(samples)].T
 
   # Add noise
-  epsilon = np.random.randn(dim, s.shape[1]) * np.sqrt(noise_level)
-  s_and_noise = np.vstack((s, epsilon))
-  return s, s_and_noise
+  epsilon = np.random.randn(dim, a.shape[1]) * np.sqrt(noise_level)
+  a_and_noise = np.vstack((a, epsilon))
+  return a, a_and_noise
 
 
-def sample_s_classification(random_state, num_samples, noise_level, correlation, dim):
+def sample_a_classification(random_state, num_samples, noise_level, correlation, dim):
   """Sample target for classification task with dim attributes. Thereby, each
   attribute (=dimension) is correlated with each other attribute with correlation
   strength. Only for two dimensions it is possible to reach correlations
@@ -118,12 +118,12 @@ def sample_s_classification(random_state, num_samples, noise_level, correlation,
 
   # Translate the sampled values to attribute combinations. This is the target.
   translation = get_translation(dim)
-  s = translation[list(samples)].T
+  a = translation[list(samples)].T
 
   # Add noise
-  epsilon = random_state.randn(dim, s.shape[1]) * np.sqrt(noise_level)
-  s_and_noise = np.vstack((s, epsilon))
-  return s, s_and_noise
+  epsilon = random_state.randn(dim, a.shape[1]) * np.sqrt(noise_level)
+  a_and_noise = np.vstack((a, epsilon))
+  return a, a_and_noise
 
 
 class DataSampler:
@@ -138,10 +138,10 @@ class DataSampler:
     self.noise_level = noise_level
     self.correlation = correlation
 
-  def sample_observations_from_factors(self, s, random_state):
-    epsilon = random_state.randn(*s.shape) * np.sqrt(self.noise_level)
-    s_and_noise = np.concatenate((s, epsilon), axis=1)
-    x = np.dot(A, s_and_noise.T).T
+  def sample_observations_from_factors(self, a, random_state):
+    epsilon = random_state.randn(*a.shape) * np.sqrt(self.noise_level)
+    a_and_noise = np.concatenate((a, epsilon), axis=1)
+    x = np.dot(A, a_and_noise.T).T
     return x.astype('float32')
 
   def sample_factors(self, num, random_state):
@@ -151,18 +151,18 @@ class DataSampler:
     return self.sample(num, random_state)[1]
 
   def sample(self, num, random_state):
-    s, s_and_noise = sample_s_classification(random_state,
+    a, a_and_noise = sample_a_classification(random_state,
                                              num,
                                              noise_level=self.noise_level,
                                              correlation=self.correlation,
                                              dim=self.dim)
-    x = np.dot(A, s_and_noise)
+    x = np.dot(A, a_and_noise)
 
     # Take transposes to convert (2,100) --> (100,2) since
     # the batch dimension needs to come first
-    s = s.T
+    a = a.T
     x = x.T
-    return s.astype('float32'), x.astype('float32')
+    return a.astype('float32'), x.astype('float32')
 
 
 # Compute disentanglement metrics
