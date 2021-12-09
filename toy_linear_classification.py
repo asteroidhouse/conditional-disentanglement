@@ -1,9 +1,9 @@
 """Code to reproduce results and figures for toy linear classification.
 
-**Notation (differs from the manuscript):**
-- Latent space: "v" (corresponds to "z" in the manuscript)
-- Target: "z" (corresponds to "s" in the manuscript)
-- Data: "x"
+**Notation:**
+- Target: s 
+- Data: x
+- Latent space: z
 
 It is faster to run this code on a GPU.
 
@@ -44,18 +44,18 @@ pac_items = 50
 def forward_generator(x, W, R, dim):
   """Compute predictions given W and R
   """
-  v = torch.mm(W, x)
-  s_hat=[]
+  z = torch.mm(W, x)
+  s_hat = []
   for d in range(dim):
-    s_hat.append(R[d:d+1] * v[d:d+1])
+    s_hat.append(R[d:d+1] * z[d:d+1])
   s_hat = torch.cat((s_hat))
   return s_hat
 
 
-def compute_x(A, z):
+def compute_x(A, s):
   """Compute data from target.
   """
-  x = np.dot(A, z)
+  x = np.dot(A, s)
   return x
 
 
@@ -66,7 +66,7 @@ def get_translation(dim):
   return np.array(list(itertools.product(*all_list)))
 
 
-def sample_z_classification(num_samples, noise_level, correlation, dim):
+def sample_s_classification(num_samples, noise_level, correlation, dim):
   """Sample target for classification task with dim attributes. Thereby, each
   attribute (=dimension) is correlated with each other attribute with correlation
   strength. Only for two dimensions it is possible to reach correlations
@@ -74,19 +74,19 @@ def sample_z_classification(num_samples, noise_level, correlation, dim):
   are impossible.
   """
   # We obtain the desired correlation, by making the combinations where all attributes are the
-  # same are less common (given by s1) compared to the other combinations of attribute values
-  # (given by s2). Thereby, we s1 and s2 depend on the number of attributes and the correlation
-  # strength (for 2 attributes s1=c1 and s2=c2):
+  # same are less common (given by t1) compared to the other combinations of attribute values
+  # (given by t2). Thereby, we t1 and t2 depend on the number of attributes and the correlation
+  # strength (for 2 attributes t1=c1 and t2=c2):
   c1 = 1 + correlation
   c2 = 1 - correlation
   n = 2 ** (dim - 2)
-  s2 = c2 / n
-  s1 = c1 - (n-1) * s2
+  t2 = c2 / n
+  t1 = c1 - (n-1) * t2
 
   if (correlation >= 0) or (dim == 2):
-    probs = np.ones(2**dim) * s2
-    probs[0] = s1
-    probs[-1] = s1
+    probs = np.ones(2**dim) * t2
+    probs[0] = t1
+    probs[-1] = t1
   else:
     print('WARNING: negative correlations not implemented for dim>2')
 
@@ -98,12 +98,12 @@ def sample_z_classification(num_samples, noise_level, correlation, dim):
 
   # Translate the sampled values to attribute combinations. This is the target.
   translation = get_translation(dim)
-  z = translation[list(samples)].T
+  s = translation[list(samples)].T
 
   # Add noise
-  epsilon = np.random.randn(dim, z.shape[1]) * np.sqrt(noise_level)
-  z_and_noise = np.vstack((z, epsilon))
-  return z, z_and_noise
+  epsilon = np.random.randn(dim, s.shape[1]) * np.sqrt(noise_level)
+  s_and_noise = np.vstack((s, epsilon))
+  return s, s_and_noise
 
 
 class Net(nn.Module):
@@ -139,23 +139,23 @@ class Discriminator():
     self.D_optimizer = optim.Adam(list(self.parameters), lr=self.lr)
     self.criterion = nn.BCEWithLogitsLoss()
 
-  def train(self, v, num_i_inner=1):
+  def train(self, z, num_i_inner=1):
     running_loss_reals = 0
     running_loss_fakes = 0
 
     for i_inner in range(num_i_inner):
-      # Shuffle v_real, such that there are different inputs stacked in each iteration
-      v_real = v[:, torch.randperm(self.N)]
+      # Shuffle z_real, such that there are different inputs stacked in each iteration
+      z_real = z[:, torch.randperm(self.N)]
 
-      # Shuffle v to get v_fake
-      v_fake = torch.clone(v_real)
+      # Shuffle z to get z_fake
+      z_fake = torch.clone(z_real)
       for d in range(self.dim):
-        v_fake[d, :] = v_fake[d, torch.randperm(self.N)]
+        z_fake[d, :] = z_fake[d, torch.randperm(self.N)]
 
       # Take an optimization step.
       self.D_optimizer.zero_grad()
-      pred_reals = self.net(v_real).flatten()
-      pred_fakes = self.net(v_fake).flatten()
+      pred_reals = self.net(z_real).flatten()
+      pred_fakes = self.net(z_fake).flatten()
       label_reals = torch.ones(self.N // pac_items).to(use_device)
       label_fakes = torch.zeros(self.N // pac_items).to(use_device)
       loss_discriminator_reals = self.criterion(pred_reals, label_reals)
@@ -176,20 +176,20 @@ class Discriminator():
 
     return ((loss_discriminator_reals + loss_discriminator_fakes) / 2).cpu().detach().numpy()
 
-  def eval_fakes(self, v):
+  def eval_fakes(self, z):
     """This loss measures whether _fake_ representations look like _real_ representations.
     """
-    v_fake = torch.clone(v)
+    z_fake = torch.clone(z)
     for d in range(self.dim):
-      v_fake[d, :] = v_fake[d, torch.randperm(self.N)]
-    pred_fakes = self.net(v_fake).flatten()
+      z_fake[d, :] = z_fake[d, torch.randperm(self.N)]
+    pred_fakes = self.net(z_fake).flatten()
     label_fakes = torch.ones(self.N // pac_items).to(use_device)
     return self.criterion(pred_fakes, label_fakes)
 
-  def eval_reals(self, v):
+  def eval_reals(self, z):
     """This loss measures whether _real_ representatiosn look like _fake_ representations.
     """
-    pred_reals = self.net(v).flatten()
+    pred_reals = self.net(z).flatten()
     label_reals = torch.zeros(self.N // pac_items).to(use_device)
     return self.criterion(pred_reals, label_reals)
 
@@ -197,7 +197,7 @@ class Discriminator():
 class ConditionalDiscriminator():
   """Discriminator for conditional loss.
   """
-  def __init__(self, N, dim, lr, condition_dim, condition_value, z):
+  def __init__(self, N, dim, lr, condition_dim, condition_value, s):
     self.dim = dim
     self.condition_dim = condition_dim
     self.condition_value = condition_value
@@ -209,32 +209,32 @@ class ConditionalDiscriminator():
     self.D_optimizer = optim.Adam(list(self.parameters), lr=self.lr)
     self.criterion = nn.BCEWithLogitsLoss()
 
-    self.z = z
+    self.s = s
     if self.condition_value == -1:
-      self.mask = z[self.condition_dim] < 0.5
+      self.mask = s[self.condition_dim] < 0.5
     elif self.condition_value == 1:
-      self.mask = z[self.condition_dim] > 0.5
+      self.mask = s[self.condition_dim] > 0.5
 
     self.N = self.mask.sum() // pac_items * pac_items
 
-  def train(self, v, num_i_inner=1):
-    v = v[:, self.mask]
-    v = v[:, :self.N]
+  def train(self, z, num_i_inner=1):
+    z = z[:, self.mask]
+    z = z[:, :self.N]
     running_loss_reals = 0
     running_loss_fakes = 0
 
     for i_inner in range(num_i_inner):
-      # Shuffle v_real, such that there are different inputs stacked in each iteration:
-      v_real = v[:, torch.randperm(self.N)]
+      # Shuffle z_real, such that there are different inputs stacked in each iteration:
+      z_real = z[:, torch.randperm(self.N)]
 
-      # Shuffle condition_dim to get v_fake
-      v_fake = torch.clone(v_real)
-      v_fake[self.condition_dim, :] = v_fake[self.condition_dim, torch.randperm(self.N)]
+      # Shuffle condition_dim to get z_fake
+      z_fake = torch.clone(z_real)
+      z_fake[self.condition_dim, :] = z_fake[self.condition_dim, torch.randperm(self.N)]
 
       # Take an optimization step
       self.D_optimizer.zero_grad()
-      pred_reals = self.net(v_real).flatten()
-      pred_fakes = self.net(v_fake).flatten()
+      pred_reals = self.net(z_real).flatten()
+      pred_fakes = self.net(z_fake).flatten()
       label_reals = torch.ones(self.N // pac_items).to(use_device)
       label_fakes = torch.zeros(self.N // pac_items).to(use_device)
       loss_discriminator_reals = self.criterion(pred_reals, label_reals)
@@ -256,34 +256,34 @@ class ConditionalDiscriminator():
 
     return ((loss_discriminator_reals + loss_discriminator_fakes) / 2).cpu().detach().numpy()
 
-  def eval_fakes(self, v):
+  def eval_fakes(self, z):
     """This loss tests if Fakes look like Reals
     """
-    v = v[:, self.mask]
-    v = v[:, :self.N]  # v must be dividable by pac_items
-    v_fake = torch.clone(v)
-    v_fake[self.condition_dim, :] = v_fake[self.condition_dim, torch.randperm(self.N)]
-    pred_fakes = self.net(v_fake).flatten()
+    z = z[:, self.mask]
+    z = z[:, :self.N]  # z must be dividable by pac_items
+    z_fake = torch.clone(z)
+    z_fake[self.condition_dim, :] = z_fake[self.condition_dim, torch.randperm(self.N)]
+    pred_fakes = self.net(z_fake).flatten()
     label_fakes = torch.ones(self.N // pac_items).to(use_device)
     return self.criterion(pred_fakes, label_fakes)
 
-  def eval_reals(self, v):
+  def eval_reals(self, z):
     """This loss tests if Reals look like Fakes
     """
-    v = v[:, self.mask]
-    v = v[:, :self.N]  # v must be dividable by pac_items
-    pred_reals = self.net(v).flatten()
+    z = z[:, self.mask]
+    z = z[:, :self.N]  # z must be dividable by pac_items
+    pred_reals = self.net(z).flatten()
     label_reals = torch.zeros(self.N // pac_items).to(use_device)
     return self.criterion(pred_reals, label_reals)
 
 
-def get_classification_accuracy(s_hat, z_discret):
+def get_classification_accuracy(s_hat, s_discret):
   s_hat_discret = (s_hat > 0).float()
-  correct = (s_hat_discret == z_discret).float().mean()
+  correct = (s_hat_discret == s_discret).float().mean()
   return correct.item()
 
 
-def minimize(x, z, loss_terms, dim):
+def minimize(x, s, loss_terms, dim):
   """Minimize loss. loss_terms defines which loss term to use
   (pure classification/ unconditional independence / conditional independence).
   """
@@ -328,11 +328,11 @@ def minimize(x, z, loss_terms, dim):
         steps = 8000
       else:
         steps = 1
-      z_discret = (z > 0).float()
+      s_discret = (s > 0).float()
       discr_list = []
       for d in range(dim):
-        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, -1, z=z_discret))
-        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, 1, z=z_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, -1, s=s_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, 1, s=s_discret))
 
     optimizer = optim.Adam([W, R], lr=lr_gen)
     optimizer_for_R = optim.Adam([R], lr=lr_regr)
@@ -375,24 +375,24 @@ def minimize(x, z, loss_terms, dim):
       optimizer.zero_grad()
       s_hat = forward_generator(x, W, R, dim)
 
-      z_discret = (z > 0).float()
+      s_discret = (s > 0).float()
       loss_classification = 0
       for d in range(dim):
-        loss_classification += criterion_classification(s_hat[d], z_discret[d])
+        loss_classification += criterion_classification(s_hat[d], s_discret[d])
       loss = loss_classification / dim
 
       if loss_terms == 'classification_unconditional':
-        _ = discr.train(v = torch.mm(W.detach(), x))
-        loss_disentanglement = discr.eval_reals(v = torch.mm(W, x))
-        loss_disentanglement += discr.eval_fakes(v = torch.mm(W, x))
+        _ = discr.train(z = torch.mm(W.detach(), x))
+        loss_disentanglement = discr.eval_reals(z = torch.mm(W, x))
+        loss_disentanglement += discr.eval_fakes(z = torch.mm(W, x))
         loss_disentanglement /= 2
         loss += weight_disentanglement * loss_disentanglement
       elif loss_terms == 'classification_conditional':
         loss_disentanglement = 0
         for discr in discr_list:
-          loss_discriminator = discr.train(v = torch.mm(W.detach(), x))
-          loss_disentanglement += discr.eval_reals(v = torch.mm(W, x))
-          loss_disentanglement += discr.eval_fakes(v = torch.mm(W, x))
+          loss_discriminator = discr.train(z = torch.mm(W.detach(), x))
+          loss_disentanglement += discr.eval_reals(z = torch.mm(W, x))
+          loss_disentanglement += discr.eval_fakes(z = torch.mm(W, x))
 
         loss_disentanglement /= dim * 2 * 2  # Two conditions, reals/fakes
         loss += weight_disentanglement * loss_disentanglement
@@ -406,9 +406,9 @@ def minimize(x, z, loss_terms, dim):
         s_hat = forward_generator(x, W, R, dim)
 
         loss_classification_inner = 0
-        z_discret = (z > 0).float()
+        s_discret = (s > 0).float()
         for d in range(dim):
-          loss_classification_inner  += criterion_classification(s_hat[d], z_discret[d])
+          loss_classification_inner  += criterion_classification(s_hat[d], s_discret[d])
         loss_classification_inner  = loss_classification_inner  / dim
         loss_classification_inner.backward()
 
@@ -429,15 +429,15 @@ def minimize(x, z, loss_terms, dim):
       loss_discriminator = 1
     elif loss_terms == 'classification_unconditional':
       discr = Discriminator(N, dim, 0.01)
-      loss_discriminator = discr.train(v = torch.mm(W.detach(), x), num_i_inner=1000)
+      loss_discriminator = discr.train(z = torch.mm(W.detach(), x), num_i_inner=1000)
     elif loss_terms == 'classification_conditional':
       discr_list = []
       for d in range(dim):
-        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, -1, z=z_discret))
-        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, 1, z=z_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, -1, s=s_discret))
+        discr_list.append(ConditionalDiscriminator(N, dim, 0.01, d, 1, s=s_discret))
       loss_discriminator = 0
       for discr in discr_list:
-        loss_discriminator += discr.train(v = torch.mm(W.detach(), x), num_i_inner=1000)
+        loss_discriminator += discr.train(z = torch.mm(W.detach(), x), num_i_inner=1000)
       loss_discriminator /= dim * 2
 
     if loss_terms == 'classification':
@@ -458,30 +458,30 @@ def minimize(x, z, loss_terms, dim):
 def test_classification(correlation, noise_level, A, W, R, dim):
   """Compute classification accuracy averaged over all attributes.
   """
-  z, z_and_noise = sample_z_classification(N, noise_level, correlation, dim=dim)
-  x = compute_x(A, z_and_noise)
+  s, s_and_noise = sample_s_classification(N, noise_level, correlation, dim=dim)
+  x = compute_x(A, s_and_noise)
   x = torch.Tensor(x).to(use_device)
-  z = torch.Tensor(z).to(use_device)
+  s = torch.Tensor(s).to(use_device)
   s_hat = forward_generator(x, W, R, dim)
 
-  z_discret = (z > 0).float()
+  s_discret = (s > 0).float()
   classification_accuracy = 0
   for d in range(dim):
-    classification_accuracy += get_classification_accuracy(s_hat[d], z_discret[d])
+    classification_accuracy += get_classification_accuracy(s_hat[d], s_discret[d])
   return classification_accuracy / dim
 
 
 def get_results(correlation, noise_level, A, anti_correlation, loss_terms, dim, filename):
   """Get accuracy on training data, test data and min/max for a sweep over correlations
   """
-  z, z_and_noise = sample_z_classification(N, noise_level, correlation, dim)
-  x = compute_x(A, z_and_noise)
+  s, s_and_noise = sample_s_classification(N, noise_level, correlation, dim)
+  x = compute_x(A, s_and_noise)
 
   x = torch.Tensor(x).to(use_device)
-  z = torch.Tensor(z).to(use_device)
+  s = torch.Tensor(s).to(use_device)
   A = torch.Tensor(A)
 
-  W, R, final_cls_loss, final_discr_loss, lr_discr = minimize(x, z, loss_terms, dim)
+  W, R, final_cls_loss, final_discr_loss, lr_discr = minimize(x, s, loss_terms, dim)
 
   # Save the final W and R values resulting from the minimization, so that we can later load/evaluate them
   base_save_dir = 'toy_cls_dim_{}_noise_{}_corr_{}_anticorr_{}'.format(
@@ -709,17 +709,17 @@ def plot_input_data_distribution():
   for noise_idx, noise_level in enumerate(list_noise_level):
     for corr_idx, correlation in enumerate(list_correlation):
       ax = axs[corr_idx, noise_idx]
-      z, z_and_noise = sample_z_classification(2000, noise_level, correlation, dim=2)
+      s, s_and_noise = sample_s_classification(2000, noise_level, correlation, dim=2)
       A = get_A(2)
-      x = compute_x(A, z_and_noise)
+      x = compute_x(A, s_and_noise)
       x1 = x[0]
       x2 = x[1]
 
-      corr_z1 = z[0]
-      corr_z2 = z[1]
+      corr_s1 = s[0]
+      corr_s2 = s[1]
 
       for i, setting in enumerate(itertools.product([-1, 1], [-1, 1])):
-        idxs = (corr_z1 == setting[0]) & (corr_z2 == setting[1])
+        idxs = (corr_s1 == setting[0]) & (corr_s2 == setting[1])
 
         sel_corr_x1 = x1[idxs]
         sel_corr_x2 = x2[idxs]

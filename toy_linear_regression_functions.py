@@ -13,105 +13,105 @@ matplotlib.rc('text', usetex=True)  # Activate latex text rendering
 # -------------------------------------------------------------
 # ------------------- Functions for Table 1 -------------------
 # -------------------------------------------------------------
-def get_cov_z_with_noise(correlation, noise_level):
+def get_cov_s_with_noise(correlation, noise_level):
   """Covariance matrix for target with noise.
   """
-  cov_z = np.array([[1.0, correlation], [correlation, 1.0]])
+  cov_s = np.array([[1.0, correlation], [correlation, 1.0]])
   cov_noise = np.eye(2) * noise_level
-  cov_z_with_noise = np.block([
-      [cov_z, np.zeros((2, 2))],
+  cov_s_with_noise = np.block([
+      [cov_s, np.zeros((2, 2))],
       [np.zeros((2, 2)), cov_noise]
   ])
-  return cov_z_with_noise
+  return cov_s_with_noise
 
 
-def covariances(cov_z_with_noise, A, W):
+def covariances(cov_s_with_noise, A, W):
   """Helper function to compute covariances.
   """
   # Just adding noise variance on diagonals
-  cov_x = multi_dot([A, cov_z_with_noise, A.T])
-  cov_v = multi_dot([W, cov_x, W.T])
-  z_noise_to_z = np.block([np.eye(2), np.zeros((2, 2))])
-  cov_z = multi_dot([z_noise_to_z, cov_z_with_noise, z_noise_to_z.T])
+  cov_x = multi_dot([A, cov_s_with_noise, A.T])
+  cov_z = multi_dot([W, cov_x, W.T])
+  s_noise_to_s = np.block([np.eye(2), np.zeros((2, 2))])
+  cov_s = multi_dot([s_noise_to_s, cov_s_with_noise, s_noise_to_s.T])
 
-  # Equals cov_z if A = (I, I)
-  cov_z_v = multi_dot([z_noise_to_z, cov_z_with_noise, A.T, W.T])
+  # Equals cov_s if A = (I, I)
+  cov_s_z = multi_dot([s_noise_to_s, cov_s_with_noise, A.T, W.T])
 
-  return cov_z, cov_x, cov_v, cov_z_v
+  return cov_s, cov_x, cov_z, cov_s_z
 
 
-def get_optimal_regression(cov_z_with_noise, A, W):
+def get_optimal_regression(cov_s_with_noise, A, W):
   """Compute optimal weights for linear regression.
   """
-  _, _, cov_v, cov_z_v = covariances(cov_z_with_noise, A, W)
-  optimal_regression_matrix = multi_dot([cov_z_v, np.linalg.inv(cov_v)])
+  _, _, cov_z, cov_s_z = covariances(cov_s_with_noise, A, W)
+  optimal_regression_matrix = multi_dot([cov_s_z, np.linalg.inv(cov_z)])
   return optimal_regression_matrix
 
 
-def get_optimal_split_regression(cov_z_with_noise, A, W):
+def get_optimal_split_regression(cov_s_with_noise, A, W):
   '''Find optimal linear regression given a disentanglement constraint
   '''
-  _, _, cov_v, _ = covariances(cov_z_with_noise, A, W)
-  z_noise_to_z = np.block([np.eye(2), np.zeros((2, 2))])
+  _, _, cov_z, _ = covariances(cov_s_with_noise, A, W)
+  s_noise_to_s = np.block([np.eye(2), np.zeros((2, 2))])
 
-  cov_z1_v1 = multi_dot([z_noise_to_z[:1, :], cov_z_with_noise, A.T, W[:1, :].T])
-  cov_z2_v2 = multi_dot([z_noise_to_z[1:2, :], cov_z_with_noise, A.T, W[1:, :].T])
-  regression_v1 = multi_dot([cov_z1_v1, np.linalg.inv(cov_v[:1, :1])])
-  regression_v2 = multi_dot([cov_z2_v2, np.linalg.inv(cov_v[1:, 1:])])
+  cov_s1_z1 = multi_dot([s_noise_to_s[:1, :], cov_s_with_noise, A.T, W[:1, :].T])
+  cov_s2_z2 = multi_dot([s_noise_to_s[1:2, :], cov_s_with_noise, A.T, W[1:, :].T])
+  regression_z1 = multi_dot([cov_s1_z1, np.linalg.inv(cov_z[:1, :1])])
+  regression_z2 = multi_dot([cov_s2_z2, np.linalg.inv(cov_z[1:, 1:])])
   optimal_split_regression = np.block([
-      [regression_v1, np.zeros((1, 1))],
-      [np.zeros((1, 1)), regression_v2],
+      [regression_z1, np.zeros((1, 1))],
+      [np.zeros((1, 1)), regression_z2],
   ])
 
   return optimal_split_regression
 
 
-def test_regression(cov_z_with_noise, A, W, R):
+def test_regression(cov_s_with_noise, A, W, R):
   """Compute mse and variance explained for given A, W, and R matrices.
   """
-  cov_z, _, cov_v, _ = covariances(cov_z_with_noise, A, W)
-  cov_s_hat = multi_dot([R, cov_v, R.T])
-  cov_s_hat_s = multi_dot([R, W, A, cov_z_with_noise[:, :2]])
+  cov_s, _, cov_z, _ = covariances(cov_s_with_noise, A, W)
+  cov_s_hat = multi_dot([R, cov_z, R.T])
+  cov_s_hat_s = multi_dot([R, W, A, cov_s_with_noise[:, :2]])
   cov_s_and_s_hat = np.block([
-      [cov_z, cov_s_hat_s.T],
+      [cov_s, cov_s_hat_s.T],
       [cov_s_hat_s, cov_s_hat]
   ])
   subtraction_matrix = np.array([[1, 0, -1, 0], [0, 1, 0, -1]])
   cov_diff = multi_dot([subtraction_matrix, cov_s_and_s_hat, subtraction_matrix.T])
 
-  variance = np.sum(np.linalg.eigvalsh(cov_z))
+  variance = np.sum(np.linalg.eigvalsh(cov_s))
   mse = np.sum(np.linalg.eigvalsh(cov_diff))
   variance_explained = 1 - mse / variance
 
   return mse, variance_explained
 
 
-def test_without_subspaces(cov_z_with_noise, A, W, cov_z_test_with_noise=None):
+def test_without_subspaces(cov_s_with_noise, A, W, cov_s_test_with_noise=None):
   """Helper function for linear regression
   """
-  R_full = get_optimal_regression(cov_z_with_noise, A, W)
+  R_full = get_optimal_regression(cov_s_with_noise, A, W)
   print("Regression matrix:")
   print(multi_dot([R_full, W]))
   print('')
-  mse, ve = test_regression(cov_z_with_noise, A, W, R_full)
+  mse, ve = test_regression(cov_s_with_noise, A, W, R_full)
   print(f"Train: MSE = {mse:.4f}, VE={ve:.4%}")
-  if cov_z_test_with_noise is not None:
-    mse, ve = test_regression(cov_z_test_with_noise, A, W, R_full)
+  if cov_s_test_with_noise is not None:
+    mse, ve = test_regression(cov_s_test_with_noise, A, W, R_full)
     print(f"Test:  MSE = {mse:.4f}, VE={ve:.4%}")
   print()
 
 
-def test_with_subspaces(cov_z_with_noise, A, W, cov_z_test_with_noise=None):
+def test_with_subspaces(cov_s_with_noise, A, W, cov_s_test_with_noise=None):
   """Helper function for linear regression with (conditional) disentanglement.
   """
-  R = get_optimal_split_regression(cov_z_with_noise, A, W)
-  mse, ve = test_regression(cov_z_with_noise, A, W, R)
+  R = get_optimal_split_regression(cov_s_with_noise, A, W)
+  mse, ve = test_regression(cov_s_with_noise, A, W, R)
   print("Regression matrix:")
   print(multi_dot([R, W]))
   print('')
   print(f"Train: MSE = {mse:.4f}, VE={ve:.4%}")
-  if cov_z_test_with_noise is not None:
-    mse, ve = test_regression(cov_z_test_with_noise, A, W, R)
+  if cov_s_test_with_noise is not None:
+    mse, ve = test_regression(cov_s_test_with_noise, A, W, R)
     print(f"Test:  MSE = {mse:.4f}, VE={ve:.4%}")
   print()
 
@@ -122,13 +122,13 @@ def test_with_subspaces(cov_z_with_noise, A, W, cov_z_test_with_noise=None):
 def get_ve(A, W, noise_level, correlation, test_correlation, subspaces, reference=False):
   """Wrapper for computing VE on training data + different test sets.
   """
-  cov_z_with_noise = get_cov_z_with_noise(correlation, noise_level)
+  cov_s_with_noise = get_cov_s_with_noise(correlation, noise_level)
 
   if subspaces:
-    R = get_optimal_split_regression(cov_z_with_noise, A, W)
+    R = get_optimal_split_regression(cov_s_with_noise, A, W)
   else:
-    R = get_optimal_regression(cov_z_with_noise, A, W)
-  _, ve = test_regression(cov_z_with_noise, A, W, R)
+    R = get_optimal_regression(cov_s_with_noise, A, W)
+  _, ve = test_regression(cov_s_with_noise, A, W, R)
 
   if reference:
     return ve
@@ -136,13 +136,13 @@ def get_ve(A, W, noise_level, correlation, test_correlation, subspaces, referenc
       # loop over test_correlations between -1 and 1
     ve_tests = []
     for corr in np.linspace(-1, 1, 10):
-      cov_z_test_with_noise = get_cov_z_with_noise(corr, noise_level)
-      _, ve_test = test_regression(cov_z_test_with_noise, A, W, R)
+      cov_s_test_with_noise = get_cov_s_with_noise(corr, noise_level)
+      _, ve_test = test_regression(cov_s_test_with_noise, A, W, R)
       ve_tests.append(ve_test)
 
     # get results for a specific test correlation
-    cov_z_test_with_noise = get_cov_z_with_noise(test_correlation, noise_level)
-    _, ve_test = test_regression(cov_z_test_with_noise, A, W, R)
+    cov_s_test_with_noise = get_cov_s_with_noise(test_correlation, noise_level)
+    _, ve_test = test_regression(cov_s_test_with_noise, A, W, R)
     return ve, ve_test, min(ve_tests), max(ve_tests)
 
 
@@ -159,8 +159,8 @@ def plot_noise_dependency(ax, correlation, loss_type, A, list_noise_level):
       W = np.linalg.inv(A[:, :2])
       subspaces = False
     elif loss_type == 'unconditional':
-      cov_z_with_noise = get_cov_z_with_noise(correlation, noise_level)
-      cov_x = multi_dot([A, cov_z_with_noise, A.T])
+      cov_s_with_noise = get_cov_s_with_noise(correlation, noise_level)
+      cov_x = multi_dot([A, cov_s_with_noise, A.T])
       W_svd, eigenvalues, _ = np.linalg.svd(cov_x)
       white = np.sqrt(np.linalg.inv(np.diag(eigenvalues)))
       if correlation == 0:
@@ -247,31 +247,31 @@ def figure_noise_dependency():
 # -------------------------------------------------------------------
 # Functions for Figure 3: Correlation of target, data and predictions
 # -------------------------------------------------------------------
-def sample_z(num_samples, cov_z_with_noise):
+def sample_s(num_samples, cov_s_with_noise):
   """Sample some data points for the target with noise
   """
-  cov_z = cov_z_with_noise[:2, :2]
+  cov_s = cov_s_with_noise[:2, :2]
   mean = [0, 0]
-  s1, s2 = np.random.multivariate_normal(mean, cov_z, num_samples).T
-  z = np.vstack((s1, s2))
-  noise_level = cov_z_with_noise[-1, -1]
+  s1, s2 = np.random.multivariate_normal(mean, cov_s, num_samples).T
+  s = np.vstack((s1, s2))
+  noise_level = cov_s_with_noise[-1, -1]
   epsilon = np.random.randn(2, num_samples) * np.sqrt(noise_level)
-  z_and_noise = np.vstack((z, epsilon))
-  return z, z_and_noise
+  s_and_noise = np.vstack((s, epsilon))
+  return s, s_and_noise
 
 
-def compute_x(A, z):
+def compute_x(A, s):
   """Compute data from target.
   """
-  x = np.dot(A, z)
+  x = np.dot(A, s)
   return x
 
 
 def forward_generator(x, W, R):
   """Compute predictions given W and R
   """
-  v = np.dot(W, x)
-  s_hat = np.dot(R, v)
+  z = np.dot(W, x)
+  s_hat = np.dot(R, z)
   return s_hat
 
 
@@ -295,13 +295,13 @@ def subplot_scatter(ax, data):
   ax.set_yticks([])
 
 
-def figure_correlations(x, z, W_regr, R_regr, W_uncond, R_uncond, W_cond, R_cond, title=True):
+def figure_correlations(x, s, W_regr, R_regr, W_uncond, R_uncond, W_cond, R_cond, title=True):
   '''Make a scatterplot showing how much target/ data / predictions are correlated
   '''
   f, axs = plt.subplots(1, 5, figsize = (15, 3), sharex='all', sharey='all')
 
   # Target
-  subplot_scatter(axs[0], z)
+  subplot_scatter(axs[0], s )
 
   # Data
   subplot_scatter(axs[1], x)
@@ -359,16 +359,16 @@ def scatterplot_visualisation(ax, data, arrow_s1, arrow_s2):
   ax.set(aspect='equal')
 
 
-def scatterplot_visualisation_v(ax, title, W, A, x, x_s1, x_s2, cov_z_with_noise):
+def scatterplot_visualisation_v(ax, title, W, A, x, x_s1, x_s2, cov_s_with_noise):
   """Wrapper for latent space plots
   """
-  v = np.dot(W, x)
+  z = np.dot(W, x)
 
   # Transform s1 and s2 to latent space v
-  v_s1 = np.dot(W, x_s1)
-  v_s2 = np.dot(W, x_s2)
+  z_s1 = np.dot(W, x_s1)
+  z_s2 = np.dot(W, x_s2)
 
-  scatterplot_visualisation(ax, v, v_s1, v_s2)
+  scatterplot_visualisation(ax, z, z_s1, z_s2)
 
   # Add labels + title
   ax.set_xlabel(r'$z_1$', fontsize=22)
@@ -376,8 +376,8 @@ def scatterplot_visualisation_v(ax, title, W, A, x, x_s1, x_s2, cov_z_with_noise
   ax.set_title(title, fontsize=22)
 
   # Compute VE (analytically)
-  R = get_optimal_split_regression(cov_z_with_noise, A, W)
-  _, ve = test_regression(cov_z_with_noise, A, W, R)
+  R = get_optimal_split_regression(cov_s_with_noise, A, W)
+  _, ve = test_regression(cov_s_with_noise, A, W, R)
   text = 'VE = ' + str(np.round(ve, 2)) + '%'
   text_box = AnchoredText(text, frameon=True, loc=4, pad=0.5, prop=dict(fontsize=14))
   plt.setp(text_box.patch, facecolor='white', alpha=0.5)
@@ -398,9 +398,9 @@ def function_unconditional_optimum(correlation, noise_level, A):
   """
   # Sample data for scatterplot
   N = 2000  # Number of datapoints shown in scatterplot
-  cov_z_with_noise = get_cov_z_with_noise(correlation, noise_level)
-  z, z_and_noise = sample_z(N, cov_z_with_noise)
-  x = compute_x(A, z_and_noise)
+  cov_s_with_noise = get_cov_s_with_noise(correlation, noise_level)
+  s, s_and_noise = sample_s(N, cov_s_with_noise)
+  x = compute_x(A, s_and_noise)
 
   s1 = [1, 0]
   s2 = [0, 1]
@@ -417,23 +417,23 @@ def function_unconditional_optimum(correlation, noise_level, A):
   axs[0].set_ylabel(r'$x_2$', fontsize=22)
 
   # SVD
-  cov_x = multi_dot([A, cov_z_with_noise, A.T])
+  cov_x = multi_dot([A, cov_s_with_noise, A.T])
   W_svd, eigenvalues, _ = np.linalg.svd(cov_x)
   scatterplot_visualisation_v(axs[1], 'svd',
-                              W_svd, A, x, x_s1, x_s2, cov_z_with_noise)
+                              W_svd, A, x, x_s1, x_s2, cov_s_with_noise)
 
   # Whitening
   white = np.sqrt(np.linalg.inv(np.diag(eigenvalues)))
   W_white = np.dot(white, W_svd)
   scatterplot_visualisation_v(axs[2], '... + whitening',
-                              W_white, A, x, x_s1, x_s2, cov_z_with_noise)
+                              W_white, A, x, x_s1, x_s2, cov_s_with_noise)
 
   # Rotate whitened
   phi = - np.pi / 4
   orth = np.array([[np.cos(phi), -np.sin(phi)], [np.sin(phi), np.cos(phi)]])
   W_rotated = multi_dot([orth, white, W_svd])
   scatterplot_visualisation_v(axs[3], '... + rotation by ' + r'$\phi_{opt}$',
-                              W_rotated, A, x, x_s1, x_s2, cov_z_with_noise)
+                              W_rotated, A, x, x_s1, x_s2, cov_s_with_noise)
 
   fig.tight_layout()
 
@@ -451,8 +451,8 @@ def function_unconditional_optimum(correlation, noise_level, A):
 def vary_phi(correlation, noise_level, A):
   """Show VE in dependence of phi.
   """
-  cov_z_with_noise = get_cov_z_with_noise(correlation, noise_level)
-  cov_x = multi_dot([A, cov_z_with_noise, A.T])
+  cov_s_with_noise = get_cov_s_with_noise(correlation, noise_level)
+  cov_x = multi_dot([A, cov_s_with_noise, A.T])
   W_svd, eigenvalues, _ = np.linalg.svd(cov_x)
   white = np.sqrt(np.linalg.inv(np.diag(eigenvalues)))
 
@@ -462,8 +462,8 @@ def vary_phi(correlation, noise_level, A):
     orth = np.array([[np.cos(phi), -np.sin(phi)], [np.sin(phi), np.cos(phi)]])
     W_new = multi_dot([orth, white, W_svd])
 
-    R = get_optimal_split_regression(cov_z_with_noise, A, W_new)
-    _, ve = test_regression(cov_z_with_noise, A, W_new, R)
+    R = get_optimal_split_regression(cov_s_with_noise, A, W_new)
+    _, ve = test_regression(cov_s_with_noise, A, W_new, R)
     ve_list.append(ve)
 
   fig = plt.figure()
