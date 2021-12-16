@@ -100,6 +100,8 @@ parser.add_argument('--dataset_type', type=str, default='conditioned',
                     help='Dataset type to load (dummy, conditioned, correlated1, correlated2)')
 parser.add_argument('--dataset', type=str, default='mnist',
                     help='Which dataset to load (celeba, mnist, fashion)')
+parser.add_argument('--weak_supervision_percentage', type=int, default=0,
+                    help='Percentage of labels removed. Works only for two attributes.')
 parser.add_argument('-f', '--filter_variable', type=str, choices=CELEBA_ATTRS)
 parser.add_argument('-t1', '--target_variable1', type=str, choices=CELEBA_ATTRS,
                     help='First attribute name')
@@ -179,11 +181,18 @@ if torch.cuda.is_available():
   torch.cuda.manual_seed(args.seed)
   torch.cuda.manual_seed_all(args.seed)
 
-exp_name = 'ft1t2:{}_{}_{}-trnc:{}-tstc:{}-m:{}-lr:{}-clr:{}-dlr:{}-on:{}-z:{}-mi:{}-dl:{}-cls:{}-s:{}'.format(
+# Batch_size and number of epochs depend on weak supervision
+factor = 1 - args.weak_supervision_percentage / 100
+batch_size = int(100 // factor)           # corresponds to 100 for full supervision 
+args.epochs = int(args.epochs // factor)  # corresponds to args.epochs for full supervision
+if args.epochs > 3600: #1200
+    args.epochs = 3600
+    
+exp_name = 'ft1t2:{}_{}_{}-trnc:{}-tstc:{}-m:{}-lr:{}-clr:{}-dlr:{}-on:{}-z:{}-mi:{}-dl:{}-cls:{}-s:{}-bs:{}-weak:{}'.format(
             args.filter_variable, args.target_variable1, args.target_variable2,
             args.train_corr, args.test_corr, args.model, args.lr, args.cls_lr,
-            args.D_lr, args.noise, args.z_dim, args.mi_type, args.disentangle_weight,
-            args.num_cls_steps, args.seed)
+            args.D_lr, args.noise, args.z_dim, args.mi_type, args.disentangle_weight, 
+            args.num_cls_steps, args.seed, batch_size, args.weak_supervision_percentage)
 
 if args.prefix:
   exp_name = args.prefix + '-' + exp_name
@@ -229,7 +238,7 @@ if args.dataset_type == 'conditioned':
                                        args.target_variable1,
                                        args.target_variable2)
   kwargs = {'num_workers': 1, 'pin_memory': True}
-  loaders = dict([(k, DataLoader(datasets[k], batch_size=100, shuffle=True if 'train' in k else False, **kwargs)) for k in datasets])
+  loaders = dict([(k, DataLoader(datasets[k], batch_size=batch_size, shuffle=True if 'train' in k else False, **kwargs)) for k in datasets])
 
   train_loader = loaders['train-0']
   test_loader = loaders['val-1']
@@ -240,10 +249,12 @@ elif args.dataset_type == 'correlated1':
                                           train_corr=args.train_corr,
                                           test_corr=args.test_corr,
                                           noise=args.noise,
-                                          splits=['train', 'val', 'test'])
-  train_loader = DataLoader(datasets['train'], batch_size=100, shuffle=True)
-  val_loader = DataLoader(datasets['val'], batch_size=100, shuffle=True)
-  test_loader_anticorrelated = DataLoader(datasets['test'], batch_size=100, shuffle=True)
+                                          splits=['train', 'val', 'test'],
+                                          weak_supervision_percentage=args.weak_supervision_percentage
+                                         )
+  train_loader = DataLoader(datasets['train'], batch_size=batch_size, shuffle=True)
+  val_loader = DataLoader(datasets['val'], batch_size=batch_size, shuffle=True)
+  test_loader_anticorrelated = DataLoader(datasets['test'], batch_size=batch_size, shuffle=True)
 
   # This part is just to get the uncorrelated test set
   # --------------------------------------------------
@@ -253,7 +264,7 @@ elif args.dataset_type == 'correlated1':
                                                        test_corr=0.0,
                                                        noise=args.noise,
                                                        splits=['test'])
-  test_loader_uncorrelated = DataLoader(datasets_uncorrelated['test'], batch_size=100, shuffle=True)
+  test_loader_uncorrelated = DataLoader(datasets_uncorrelated['test'], batch_size=batch_size, shuffle=True)
   # --------------------------------------------------
 
 elif args.dataset_type == 'correlated2':
@@ -262,17 +273,17 @@ elif args.dataset_type == 'correlated2':
                                                   train_corr=args.train_corr,
                                                   test_corr=args.test_corr,
                                                   noise=args.noise)
-  train_loader = DataLoader(datasets['train'], batch_size=100, shuffle=True)
-  val_loader = DataLoader(datasets['val'], batch_size=100, shuffle=True)
-  test_loader = DataLoader(datasets['test'], batch_size=100, shuffle=True)
+  train_loader = DataLoader(datasets['train'], batch_size=batch_size, shuffle=True)
+  val_loader = DataLoader(datasets['val'], batch_size=batch_size, shuffle=True)
+  test_loader = DataLoader(datasets['test'], batch_size=batch_size, shuffle=True)
 
 elif args.dataset_type == 'natural':
   datasets = celeba.get_natural_correlated_celeba(factor1=args.target_variable1,
                                                   factor2=args.target_variable2,
                                                   splits=['train', 'val', 'test'])
-  train_loader = DataLoader(datasets['train'], batch_size=100, shuffle=True)
-  val_loader = DataLoader(datasets['val'], batch_size=100, shuffle=True)
-  test_loader_anticorrelated = DataLoader(datasets['test'], batch_size=100, shuffle=True)
+  train_loader = DataLoader(datasets['train'], batch_size=batch_size, shuffle=True)
+  val_loader = DataLoader(datasets['val'], batch_size=batch_size, shuffle=True)
+  test_loader_anticorrelated = DataLoader(datasets['test'], batch_size=batch_size, shuffle=True)
 
   # This part is just to get the uncorrelated test set
   # --------------------------------------------------
@@ -282,7 +293,7 @@ elif args.dataset_type == 'natural':
                                                        test_corr=0.0,
                                                        noise=args.noise,
                                                        splits=['test'])
-  test_loader_uncorrelated = DataLoader(datasets_uncorrelated['test'], batch_size=100, shuffle=True)
+  test_loader_uncorrelated = DataLoader(datasets_uncorrelated['test'], batch_size=batch_size, shuffle=True)
   # --------------------------------------------------
 
 elif args.dataset_type == 'multi-digit':
@@ -300,10 +311,10 @@ elif args.dataset_type == 'multi-digit':
                                                                               noise=args.noise,
                                                                               occlusion_patch_size=args.occlusion_patch_size)
   possible_labels = [c_to_i[v] for v in classes]
-  train_loader = DataLoader(trainset, batch_size=100, shuffle=True)
-  val_loader = DataLoader(valset, batch_size=100, shuffle=True)
-  test_loader_anticorrelated = DataLoader(testset_anticorrelated, batch_size=100, shuffle=True)
-  test_loader_uncorrelated = DataLoader(testset_uncorrelated, batch_size=100, shuffle=True)
+  train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+  val_loader = DataLoader(valset, batch_size=batch_size, shuffle=True)
+  test_loader_anticorrelated = DataLoader(testset_anticorrelated, batch_size=batch_size, shuffle=True)
+  test_loader_uncorrelated = DataLoader(testset_uncorrelated, batch_size=batch_size, shuffle=True)
 
 # Plot heatmaps showing the number of examples for each combination of attributes
 # -------------------------------------------------------------------------------
@@ -454,7 +465,16 @@ def mmd_loss_cond(dim, z, label, z_shuffled, label_shuffled, sigmas):
     tmp = mmd_loss(z_filtered1, z_filtered2, sigmas=sigmas)
     mmd_loss_sum += tmp
   return mmd_loss_sum
+
 # --------------------------------------------------------
+# Weakly supervised
+def filter_weak_supervision(fx_labels, zx): 
+  fx_filter = (fx_labels != -1)      
+  fx_labels_filtered = fx_labels[fx_filter] 
+  zx_filtered = zx[fx_filter]    
+  return fx_labels_filtered, zx_filtered
+# --------------------------------------------------------
+
 
 
 # Training loop
@@ -709,6 +729,50 @@ def evaluate(dataloader, save_name):
   return np.mean(losses), left_acc, right_acc, f1_acc_dict, f2_acc_dict, all_z_np, all_labels, all_mapped_preds, all_mapped_labels
 
 
+def evaluate_reduced(dataloader, save_name):    
+  '''Reduced version of evaluate function (for training data with weak supervison)'''
+  losses = []
+
+  num_correct_left = 0
+  num_correct_right = 0
+  num_total_left = 0
+  num_total_right = 0
+
+  with torch.no_grad():
+    for images, labels in dataloader:
+      images = images.to(use_device)
+      f1_labels = labels[:,0].to(use_device)
+      f2_labels = labels[:,1].to(use_device)
+
+      z = model(images)
+      z1 = z[:,:subspace_dim]
+      z2 = z[:,subspace_dim:]
+
+      # weak supervision
+      f1_labels, z1 = filter_weak_supervision(f1_labels, z1)
+      f2_labels, z2 = filter_weak_supervision(f2_labels, z2)
+
+      f1_logits = f1_classifier(z1)
+      f2_logits = f2_classifier(z2)
+
+      f1_xentropy_loss = F.cross_entropy(f1_logits, f1_labels)
+      f2_xentropy_loss = F.cross_entropy(f2_logits, f2_labels)
+      loss = (f1_xentropy_loss + f2_xentropy_loss) / 2.0
+
+      losses.append(loss.item())
+
+      num_correct_left += torch.sum(torch.argmax(f1_logits, axis=1) == f1_labels).item()
+      num_correct_right += torch.sum(torch.argmax(f2_logits, axis=1) == f2_labels).item()
+      num_total_left += f1_labels.shape[0]
+      num_total_right += f2_labels.shape[0]
+
+
+  left_acc = num_correct_left / float(num_total_left)
+  right_acc = num_correct_right / float(num_total_right)
+
+  return np.mean(losses), left_acc, right_acc
+
+
 def save_models(prefix=None):
   if prefix:
     torch.save(model, os.path.join(save_dir, '{}-model.pt'.format(prefix)))
@@ -731,18 +795,23 @@ best_val_loss = 1e8
 for epoch in range(args.epochs):
 
   # Evaluate mean loss and accuracy on the training and test sets (which differ in correlation between FG and BG
-  trn_loss, trn_f1_acc, trn_f2_acc, trn_l_acc_dict, trn_r_acc_dict, trn_zs, trn_labels, trn_mapped_preds, trn_mapped_labels = evaluate(train_loader, save_name='train_ep_{}'.format(epoch))
+  if args.weak_supervision_percentage == 0:
+    trn_loss, trn_f1_acc, trn_f2_acc, trn_l_acc_dict, trn_r_acc_dict, trn_zs, trn_labels, trn_mapped_preds, trn_mapped_labels = evaluate(train_loader, save_name='train_ep_{}'.format(epoch))
+  else:
+    trn_loss, trn_f1_acc, trn_f2_acc = evaluate_reduced(train_loader, save_name='train_ep_{}'.format(epoch))
   val_loss, val_f1_acc, val_f2_acc, val_l_acc_dict, val_r_acc_dict, val_zs, val_labels, val_mapped_preds, val_mapped_labels = evaluate(val_loader, save_name='val_ep_{}'.format(epoch))
   tst_ac_loss, tst_ac_f1_acc, tst_ac_f2_acc, tst_ac_l_acc_dict, tst_ac_r_acc_dict, tst_ac_zs, tst_ac_labels, tst_ac_mapped_preds, tst_ac_mapped_labels = evaluate(test_loader_anticorrelated, save_name='test_anticorr_ep_{}'.format(epoch))
   tst_uc_loss, tst_uc_f1_acc, tst_uc_f2_acc, tst_uc_l_acc_dict, tst_uc_r_acc_dict, tst_uc_zs, tst_uc_labels, tst_uc_mapped_preds, tst_uc_mapped_labels = evaluate(test_loader_uncorrelated, save_name='test_uncorr_ep_{}'.format(epoch))
 
   if epoch % 20 == 0:
-    plot_confusion_matrix(trn_mapped_preds, trn_mapped_labels, 'Train Confusion', os.path.join(save_dir, 'confusion', 'train_confusion.png'))
+    if args.weak_supervision_percentage == 0:
+      plot_confusion_matrix(trn_mapped_preds, trn_mapped_labels, 'Train Confusion', os.path.join(save_dir, 'confusion', 'train_confusion.png'))
     plot_confusion_matrix(val_mapped_preds, val_mapped_labels, 'Val Confusion', os.path.join(save_dir, 'confusion', 'val_confusion.png'))
     plot_confusion_matrix(tst_ac_mapped_preds, tst_ac_mapped_labels, 'Test Anticorrelated', os.path.join(save_dir, 'confusion', 'test_anticorr_confusion.png'))
     plot_confusion_matrix(tst_uc_mapped_preds, tst_uc_mapped_labels, 'Test Uncorrelated', os.path.join(save_dir, 'confusion', 'test_uncorr_confusion.png'))
 
-    visualize_predictions(train_loader, os.path.join(save_dir, 'prediction_vis', 'train_preds.png'), M=50)
+    if args.weak_supervision_percentage == 0:
+      visualize_predictions(train_loader, os.path.join(save_dir, 'prediction_vis', 'train_preds.png'), M=50)
     visualize_predictions(val_loader, os.path.join(save_dir, 'prediction_vis', 'val_preds.png'), M=50)
     visualize_predictions(test_loader_anticorrelated, os.path.join(save_dir, 'prediction_vis', 'test_preds_anticorr.png'), M=50)
     visualize_predictions(test_loader_uncorrelated, os.path.join(save_dir, 'prediction_vis', 'test_preds_uncorr.png'), M=50)
@@ -755,12 +824,14 @@ for epoch in range(args.epochs):
   if val_loss < best_val_loss:
     best_val_loss = val_loss
 
-    plot_confusion_matrix(trn_mapped_preds, trn_mapped_labels, 'Train Confusion', os.path.join(save_dir, 'confusion', 'train_confusion_bvl.png'))
+    if args.weak_supervision_percentage == 0:
+      plot_confusion_matrix(trn_mapped_preds, trn_mapped_labels, 'Train Confusion', os.path.join(save_dir, 'confusion', 'train_confusion_bvl.png'))
     plot_confusion_matrix(val_mapped_preds, val_mapped_labels, 'Val Confusion', os.path.join(save_dir, 'confusion', 'val_confusion_bvl.png'))
     plot_confusion_matrix(tst_ac_mapped_preds, tst_ac_mapped_labels, 'Test Anticorrelated', os.path.join(save_dir, 'confusion', 'test_anticorr_confusion_bvl.png'))
     plot_confusion_matrix(tst_uc_mapped_preds, tst_uc_mapped_labels, 'Test Uncorrelated', os.path.join(save_dir, 'confusion', 'test_uncorr_confusion_bvl.png'))
 
-    visualize_predictions_separate(train_loader, os.path.join(save_dir, 'prediction_vis_separate', 'train_bvl'), M=64)
+    if args.weak_supervision_percentage == 0:
+      visualize_predictions_separate(train_loader, os.path.join(save_dir, 'prediction_vis_separate', 'train_bvl'), M=64)
     visualize_predictions_separate(val_loader, os.path.join(save_dir, 'prediction_vis_separate', 'val_bvl'), M=64)
     visualize_predictions_separate(test_loader_anticorrelated, os.path.join(save_dir, 'prediction_vis_separate', 'test_anticorr_bvl'), M=64)
     visualize_predictions_separate(test_loader_uncorrelated, os.path.join(save_dir, 'prediction_vis_separate', 'test_uncorr_bvl'), M=64)
@@ -772,12 +843,14 @@ for epoch in range(args.epochs):
   if val_avg_acc > best_val_acc:
     best_val_acc = val_avg_acc
 
-    plot_confusion_matrix(trn_mapped_preds, trn_mapped_labels, 'Train Confusion', os.path.join(save_dir, 'confusion', 'train_confusion_bva.png'))
+    if args.weak_supervision_percentage == 0:
+      plot_confusion_matrix(trn_mapped_preds, trn_mapped_labels, 'Train Confusion', os.path.join(save_dir, 'confusion', 'train_confusion_bva.png'))
     plot_confusion_matrix(val_mapped_preds, val_mapped_labels, 'Val Confusion', os.path.join(save_dir, 'confusion', 'val_confusion_bva.png'))
     plot_confusion_matrix(tst_ac_mapped_preds, tst_ac_mapped_labels, 'Test Anticorrelated', os.path.join(save_dir, 'confusion', 'test_anticorr_confusion_bva.png'))
     plot_confusion_matrix(tst_uc_mapped_preds, tst_uc_mapped_labels, 'Test Uncorrelated', os.path.join(save_dir, 'confusion', 'test_uncorr_confusion_bva.png'))
 
-    visualize_predictions_separate(train_loader, os.path.join(save_dir, 'prediction_vis_separate', 'train_bva'), M=64)
+    if args.weak_supervision_percentage == 0:
+      visualize_predictions_separate(train_loader, os.path.join(save_dir, 'prediction_vis_separate', 'train_bva'), M=64)
     visualize_predictions_separate(val_loader, os.path.join(save_dir, 'prediction_vis_separate', 'val_bva'), M=64)
     visualize_predictions_separate(test_loader_anticorrelated, os.path.join(save_dir, 'prediction_vis_separate', 'test_anticorr_bva'), M=64)
     visualize_predictions_separate(test_loader_uncorrelated, os.path.join(save_dir, 'prediction_vis_separate', 'test_uncorr_bva'), M=64)
@@ -785,6 +858,9 @@ for epoch in range(args.epochs):
     save_models(prefix='bva')
 
 
+  if args.weak_supervision_percentage > 0:
+    trn_l_acc_dict, trn_r_acc_dict = 0, 0   
+        
   epoch_dict['epoch'].append(epoch)
   epoch_dict['trn_loss'].append(trn_loss)
   epoch_dict['val_loss'].append(val_loss)
@@ -809,81 +885,82 @@ for epoch in range(args.epochs):
   epoch_dict['tst_ac_l_acc_dict'].append(tst_ac_l_acc_dict)
   epoch_dict['tst_ac_r_acc_dict'].append(tst_ac_r_acc_dict)
 
-  fig = plt.figure(figsize=(6,4))
-  plt.plot(epoch_dict['epoch'], epoch_dict['trn_loss'], linewidth=2, label='Train')
-  plt.plot(epoch_dict['epoch'], epoch_dict['val_loss'], linewidth=2, label='Val')
-  # plt.plot(epoch_dict['epoch'], epoch_dict['tst_loss'], linewidth=2, label='Test')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_loss'], linewidth=2, label='Test AC')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_loss'], linewidth=2, label='Test UC')
-  plt.xticks(fontsize=16)
-  plt.yticks(fontsize=16)
-  plt.xlabel('Epoch', fontsize=18)
-  plt.ylabel('Loss', fontsize=18)
-  plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
-  sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_losses.png'),
-              bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_losses.pdf'),
-              bbox_inches='tight', pad_inches=0)
-  plt.close(fig)
+  if args.weak_supervision_percentage == 0:  
+    fig = plt.figure(figsize=(6,4))
+    plt.plot(epoch_dict['epoch'], epoch_dict['trn_loss'], linewidth=2, label='Train')
+    plt.plot(epoch_dict['epoch'], epoch_dict['val_loss'], linewidth=2, label='Val')
+    # plt.plot(epoch_dict['epoch'], epoch_dict['tst_loss'], linewidth=2, label='Test')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_loss'], linewidth=2, label='Test AC')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_loss'], linewidth=2, label='Test UC')
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.xlabel('Epoch', fontsize=18)
+    plt.ylabel('Loss', fontsize=18)
+    plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
+    sns.despine()
+    plt.savefig(os.path.join(save_dir, 'epoch_losses.png'),
+                bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(save_dir, 'epoch_losses.pdf'),
+                bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
 
-  fig = plt.figure(figsize=(6,4))
-  plt.plot(epoch_dict['epoch'], epoch_dict['trn_acc'], linewidth=2, label='Train')
-  plt.plot(epoch_dict['epoch'], epoch_dict['val_acc'], linewidth=2, label='Val')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_acc'], linewidth=2, label='Test AC')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_acc'], linewidth=2, label='Test UC')
-  plt.ylim(0, 1.0)
-  plt.xticks(fontsize=16)
-  plt.yticks(fontsize=16)
-  plt.xlabel('Epoch', fontsize=18)
-  plt.ylabel('{} Accuracy'.format(args.target_variable1), fontsize=18)
-  plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
-  sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_acc.png'),
-              bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_acc.pdf'),
-              bbox_inches='tight', pad_inches=0)
-  plt.close(fig)
+    fig = plt.figure(figsize=(6,4))
+    plt.plot(epoch_dict['epoch'], epoch_dict['trn_acc'], linewidth=2, label='Train')
+    plt.plot(epoch_dict['epoch'], epoch_dict['val_acc'], linewidth=2, label='Val')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_acc'], linewidth=2, label='Test AC')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_acc'], linewidth=2, label='Test UC')
+    plt.ylim(0, 1.0)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.xlabel('Epoch', fontsize=18)
+    plt.ylabel('{} Accuracy'.format(args.target_variable1), fontsize=18)
+    plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
+    sns.despine()
+    plt.savefig(os.path.join(save_dir, 'epoch_acc.png'),
+                bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(save_dir, 'epoch_acc.pdf'),
+                bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
 
-  fig = plt.figure(figsize=(6,4))
-  plt.plot(epoch_dict['epoch'], epoch_dict['trn_f1_acc'], linewidth=2, label='Train')
-  plt.plot(epoch_dict['epoch'], epoch_dict['val_f1_acc'], linewidth=2, label='Val')
-  # plt.plot(epoch_dict['epoch'], epoch_dict['tst_f1_acc'], linewidth=2, label='Test')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_f1_acc'], linewidth=2, label='Test AC')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_f1_acc'], linewidth=2, label='Test UC')
-  plt.ylim(0, 1.0)
-  plt.xticks(fontsize=16)
-  plt.yticks(fontsize=16)
-  plt.xlabel('Epoch', fontsize=18)
-  plt.ylabel('{} Accuracy'.format(args.target_variable1), fontsize=18)
-  plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
-  sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.png'),
-              bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.pdf'),
-              bbox_inches='tight', pad_inches=0)
-  plt.close(fig)
+    fig = plt.figure(figsize=(6,4))
+    plt.plot(epoch_dict['epoch'], epoch_dict['trn_f1_acc'], linewidth=2, label='Train')
+    plt.plot(epoch_dict['epoch'], epoch_dict['val_f1_acc'], linewidth=2, label='Val')
+    # plt.plot(epoch_dict['epoch'], epoch_dict['tst_f1_acc'], linewidth=2, label='Test')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_f1_acc'], linewidth=2, label='Test AC')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_f1_acc'], linewidth=2, label='Test UC')
+    plt.ylim(0, 1.0)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.xlabel('Epoch', fontsize=18)
+    plt.ylabel('{} Accuracy'.format(args.target_variable1), fontsize=18)
+    plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
+    sns.despine()
+    plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.png'),
+                bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(save_dir, 'epoch_f1_acc.pdf'),
+                bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
 
-  fig = plt.figure(figsize=(6,4))
-  plt.plot(epoch_dict['epoch'], epoch_dict['trn_f2_acc'], linewidth=2, label='Train')
-  plt.plot(epoch_dict['epoch'], epoch_dict['val_f2_acc'], linewidth=2, label='Val')
-  # plt.plot(epoch_dict['epoch'], epoch_dict['tst_f2_acc'], linewidth=2, label='Test')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_f2_acc'], linewidth=2, label='Test AC')
-  plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_f2_acc'], linewidth=2, label='Test UC')
-  plt.ylim(0, 1.0)
-  plt.xticks(fontsize=16)
-  plt.yticks(fontsize=16)
-  plt.xlabel('Epoch', fontsize=18)
-  plt.ylabel('{} Accuracy'.format(args.target_variable2), fontsize=18)
-  plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
-  sns.despine()
-  plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.png'),
-              bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.pdf'),
-              bbox_inches='tight', pad_inches=0)
-  plt.close(fig)
+    fig = plt.figure(figsize=(6,4))
+    plt.plot(epoch_dict['epoch'], epoch_dict['trn_f2_acc'], linewidth=2, label='Train')
+    plt.plot(epoch_dict['epoch'], epoch_dict['val_f2_acc'], linewidth=2, label='Val')
+    # plt.plot(epoch_dict['epoch'], epoch_dict['tst_f2_acc'], linewidth=2, label='Test')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_ac_f2_acc'], linewidth=2, label='Test AC')
+    plt.plot(epoch_dict['epoch'], epoch_dict['tst_uc_f2_acc'], linewidth=2, label='Test UC')
+    plt.ylim(0, 1.0)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.xlabel('Epoch', fontsize=18)
+    plt.ylabel('{} Accuracy'.format(args.target_variable2), fontsize=18)
+    plt.legend(fontsize=18, fancybox=True, framealpha=0.3)
+    sns.despine()
+    plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.png'),
+                bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(save_dir, 'epoch_f2_acc.pdf'),
+                bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
 
-  if args.z_dim == 2:  # If the latent space is 2D, plot it
+  if args.z_dim == 2 and args.weak_supervision_percentage == 0:
     fig = plt.figure(figsize=(6,4))
     for combo in itertools.product(possible_labels, possible_labels):
       indexes = np.all(trn_labels == np.array(combo), axis=1)
@@ -959,11 +1036,19 @@ for epoch in range(args.epochs):
     z1 = z[:,:subspace_dim]
     z2 = z[:,subspace_dim:]
 
-    f1_logits = f1_classifier(z1)
-    f2_logits = f2_classifier(z2)
+    if args.weak_supervision_percentage == 0:
+      f1_logits = f1_classifier(z1)
+      f2_logits = f2_classifier(z2)
+      f1_xentropy_loss = F.cross_entropy(f1_logits, f1_labels)
+      f2_xentropy_loss = F.cross_entropy(f2_logits, f2_labels)
+    else:
+      f1_labels_filtered, z1_filtered = filter_weak_supervision(f1_labels, z1)
+      f2_labels_filtered, z2_filtered = filter_weak_supervision(f2_labels, z2)           
+      f1_logits_filtered = f1_classifier(z1_filtered)
+      f2_logits_filtered = f2_classifier(z2_filtered)
+      f1_xentropy_loss = F.cross_entropy(f1_logits_filtered, f1_labels_filtered)
+      f2_xentropy_loss = F.cross_entropy(f2_logits_filtered, f2_labels_filtered)
 
-    f1_xentropy_loss = F.cross_entropy(f1_logits, f1_labels)
-    f2_xentropy_loss = F.cross_entropy(f2_logits, f2_labels)
 
     G_loss = (f1_xentropy_loss + f2_xentropy_loss) / 2.0
 
@@ -984,7 +1069,8 @@ for epoch in range(args.epochs):
       G_loss += args.disentangle_weight * G_gan_loss
     elif args.mi_type == 'conditional':
       # Loop over possible values for the first factor
-      for f1_value in list(set(f1_labels.detach().cpu().numpy())):
+      #for f1_value in list(set(f1_labels.detach().cpu().numpy())):
+      for f1_value in [0, 1]: #Hard coded for weak supervision
         value_filter = (f1_labels == f1_value)
         # Take only the zs that have the value of a1 that we're conditioning on
         cond_zs = z[value_filter]
@@ -1000,7 +1086,8 @@ for epoch in range(args.epochs):
         G_gan_loss += G_gan_loss_f1
 
       # Loop over possible values for the second factor
-      for f2_value in list(set(f2_labels.detach().cpu().numpy())):
+      #for f2_value in list(set(f2_labels.detach().cpu().numpy())):
+      for f2_value in [0, 1]:
         value_filter = (f2_labels == f2_value)
         # Take only the zs that have the value of a1 that we're conditioning on
         cond_zs = z[value_filter]
@@ -1068,10 +1155,19 @@ for epoch in range(args.epochs):
     # Train linear classification heads
     # ---------------------------------
     for cls_train_iter in range(args.num_cls_steps):
-      f1_logits = f1_classifier(z1.detach())
-      f2_logits = f2_classifier(z2.detach())
-      f1_xentropy_loss = F.cross_entropy(f1_logits, f1_labels)
-      f2_xentropy_loss = F.cross_entropy(f2_logits, f2_labels)
+      if args.weak_supervision_percentage == 0:
+        f1_logits = f1_classifier(z1.detach())
+        f2_logits = f2_classifier(z2.detach())
+        f1_xentropy_loss = F.cross_entropy(f1_logits, f1_labels)
+        f2_xentropy_loss = F.cross_entropy(f2_logits, f2_labels)
+      else:
+        f1_labels_filtered, z1_filtered = filter_weak_supervision(f1_labels, z1)
+        f2_labels_filtered, z2_filtered = filter_weak_supervision(f2_labels, z2)           
+        f1_logits_filtered = f1_classifier(z1_filtered.detach())
+        f2_logits_filtered = f2_classifier(z2_filtered.detach())
+        f1_xentropy_loss = F.cross_entropy(f1_logits_filtered, f1_labels_filtered)
+        f2_xentropy_loss = F.cross_entropy(f2_logits_filtered, f2_labels_filtered)
+        
       classification_loss = (f1_xentropy_loss + f2_xentropy_loss) / 2.0
       classification_optimizer.zero_grad()
       classification_loss.backward()
@@ -1095,7 +1191,8 @@ for epoch in range(args.epochs):
     elif args.mi_type == 'conditional':
       D_loss = 0.0
 
-      for f1_value in list(set(f1_labels.detach().cpu().numpy())):  # Possible values for a1
+      #for f1_value in list(set(f1_labels.detach().cpu().numpy())):  # Possible values for a1
+      for f1_value in [0, 1]: # Hard code for weak supervision
         value_filter = (f1_labels == f1_value)
         cond_zs = z[value_filter]  # Take only the zs that have the value of a1 that we're conditioning on
         cond_zs_sub = cond_zs
@@ -1109,7 +1206,8 @@ for epoch in range(args.epochs):
                         F.binary_cross_entropy_with_logits(fake_scores_f1, torch.zeros((cond_zs.size(0), 1), device=z.device))  # Original G objective
         D_loss += D_gan_loss_fg
 
-      for f2_value in list(set(f2_labels.detach().cpu().numpy())):
+      #for f2_value in list(set(f2_labels.detach().cpu().numpy())):
+      for f2_value in [0, 1]:
         value_filter = (f2_labels == f2_value)
         cond_zs = z[value_filter]  # Take only the zs that have the value of a1 that we're conditioning on
         cond_zs_sub = cond_zs
@@ -1144,13 +1242,13 @@ for epoch in range(args.epochs):
     global_iteration += 1
 
     iteration_dict['iteration'].append(global_iteration)
-    iteration_dict['f1_xentropy_loss'].append(f1_xentropy_loss)
-    iteration_dict['f2_xentropy_loss'].append(f2_xentropy_loss)
-    iteration_dict['G_loss'].append(G_loss)
+    iteration_dict['f1_xentropy_loss'].append(f1_xentropy_loss.detach().cpu().numpy())
+    iteration_dict['f2_xentropy_loss'].append(f2_xentropy_loss.detach().cpu().numpy())
+    iteration_dict['G_loss'].append(G_loss.detach().cpu().numpy())
 
     if args.mi_type in ['unconditional', 'conditional']:
-      iteration_dict['G_gan_loss'].append(G_gan_loss)
-      iteration_dict['D_loss'].append(D_loss)
+      iteration_dict['G_gan_loss'].append(G_gan_loss.detach().cpu().numpy())
+      iteration_dict['D_loss'].append(D_loss.detach().cpu().numpy())
 
     if global_iteration % args.plot_every == 0:
       for key in [mykey for mykey in iteration_dict.keys() if mykey != 'iteration']:
@@ -1220,3 +1318,4 @@ save_models()
 # Save all epoch_dict stats accumulated over the course of training
 with open(os.path.join(save_dir, 'result.pkl'), 'wb') as f:
   pkl.dump(epoch_dict, f)
+

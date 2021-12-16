@@ -24,8 +24,11 @@ import data_utils
 # CELEBA_ROOT = 'datasets/celeba'
 # CELBEA_IMG_CACHE = os.path.join('data/celeba1k-64x64.npz')
 
-CELEBA_ROOT = '/scratch/gobi1/datasets/celeba'
-CELBEA_IMG_CACHE = os.path.join('/scratch/gobi1/pvicol/data/celeba1k-64x64.npz')
+#CELEBA_ROOT = '/scratch/gobi1/datasets/celeba'
+#CELBEA_IMG_CACHE = os.path.join('/scratch/gobi1/pvicol/data/celeba1k-64x64.npz')
+
+CELEBA_ROOT = '/mnt/qb/work/bethge/cfunke/datasets/celeba'
+CELBEA_IMG_CACHE = os.path.join('data/celeba1k-64x64.npz')
 
 CELEBA_ATTRS = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive',
                 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips',
@@ -230,7 +233,8 @@ def get_natural_correlated_celeba(factor1, factor2, splits=['train', 'val', 'tes
 
 
 def get_correlated_celeba(factor1, factor2, train_corr, test_corr,
-                          splits=['train', 'val', 'test'], noise=0.0):
+                          splits=['train', 'val', 'test'], noise=0.0,
+                          weak_supervision_percentage=0.0):
   train_corr_matrix = get_correlation_matrix(train_corr)
   test_corr_matrix = get_correlation_matrix(test_corr)
 
@@ -269,6 +273,16 @@ def get_correlated_celeba(factor1, factor2, train_corr, test_corr,
     adjusted_idxs = np.concatenate(list(idx_dict.values()))
     Xs = Xs[adjusted_idxs]
     labels = labels[adjusted_idxs]
+   
+    # Weak supervison
+    num_datapoints = labels.shape[0]
+    num_missing_labels = num_datapoints * weak_supervision_percentage // 100
+    num_labels = num_datapoints - num_missing_labels
+    if split_name =='train' and weak_supervision_percentage > 0:
+      print('Weak supervision percentage:', weak_supervision_percentage)
+      labels[np.random.permutation(num_datapoints)[:num_missing_labels], 0] = -1 # -1 means that label is missing.
+      labels[np.random.permutation(num_datapoints)[:num_missing_labels], 1] = -1
+
     datasets[split_name] = CelebaDataset(Xs, labels, noise=noise)
 
   return datasets
