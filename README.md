@@ -193,7 +193,7 @@ python plot_celeba.py
 
 **Train on CelebA with Weak Supervision**
 ```
-TODO
+bash loop_celeba_weakly.sh
 ```
 
 **Plot Results**
