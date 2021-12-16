@@ -185,8 +185,9 @@ if torch.cuda.is_available():
 factor = 1 - args.weak_supervision_percentage / 100
 batch_size = int(100 // factor)           # corresponds to 100 for full supervision 
 args.epochs = int(args.epochs // factor)  # corresponds to args.epochs for full supervision
-if args.epochs > 3600: #1200
-    args.epochs = 3600
+# Set upper limit of 2200 epochs
+if args.epochs > 2200:
+    args.epochs = 2200
     
 exp_name = 'ft1t2:{}_{}_{}-trnc:{}-tstc:{}-m:{}-lr:{}-clr:{}-dlr:{}-on:{}-z:{}-mi:{}-dl:{}-cls:{}-s:{}-bs:{}-weak:{}'.format(
             args.filter_variable, args.target_variable1, args.target_variable2,
