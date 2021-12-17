@@ -198,7 +198,7 @@ bash loop_celeba_weakly.sh
 
 **Plot Results**
 ```
-TODO
+python plot_celeba_weakly.py
 ```
 
 ![Weakly-supervised CelebA plot](figures/weakly-supervised-celeba.png)
