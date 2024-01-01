@@ -2,3 +2,4 @@ tqdm
 seaborn
 ruamel.yaml
 tensorboardX
+entropy_estimators
