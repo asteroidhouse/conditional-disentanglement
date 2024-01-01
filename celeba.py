@@ -1,7 +1,7 @@
 """CelebA data loading functions.
 """
 import os
-import ipdb
+import pdb
 import pandas
 import getpass
 import itertools
@@ -21,14 +21,8 @@ import torchvision.utils as vutils
 import data_utils
 
 
-# CELEBA_ROOT = 'datasets/celeba'
-# CELBEA_IMG_CACHE = os.path.join('data/celeba1k-64x64.npz')
-
-CELEBA_ROOT = '/scratch/gobi1/datasets/celeba'
-CELBEA_IMG_CACHE = os.path.join('/scratch/gobi1/pvicol/data/celeba1k-64x64.npz')
-
-#CELEBA_ROOT = '/mnt/qb/work/bethge/cfunke/datasets/celeba'
-#CELBEA_IMG_CACHE = os.path.join('data/celeba1k-64x64.npz')
+CELEBA_ROOT = '../datasets/celeba'
+CELBEA_IMG_CACHE = os.path.join('data/celeba1k-64x64.npz')
 
 CELEBA_ATTRS = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive',
                 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips',
