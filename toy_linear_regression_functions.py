@@ -469,7 +469,7 @@ def vary_phi(correlation, noise_level, A):
   fig = plt.figure()
   plt.plot(phis, ve_list, linewidth=2)
   plt.xticks([0, np.pi/2, np.pi, np.pi * 3/2, np.pi*2],
-  [r'$0$', r'$\nicefrac{\pi}{2}$', r'$\pi$', r'$\nicefrac{3 \pi}{2}$', r'$2 \pi$'], fontsize=22)
+  [r'$0$', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3 \pi}{2}$', r'$2 \pi$'], fontsize=22)
   plt.yticks(fontsize=22)
   plt.ylim(0, 1)
   plt.xlabel(r'$\phi$', fontsize=22)
