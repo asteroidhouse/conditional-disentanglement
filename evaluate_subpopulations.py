@@ -1,51 +1,12 @@
-"""Evaluate subpopulation accuracies of each model trained with different objectives, e.g., Cls, Cls+MI, Cls+CMI
+"""Evaluate subpopulation accuracies of each model trained with different
+objectives, e.g., Cls, Cls+MI, Cls+CMI
 
 Example
 -------
 python evaluate_subpopulations.py \
-    --target_variable1=Eyeglasses \
-    --target_variable2=Male \
-    --load=saves/celeba_natural_eyeglasses_male_cls/ft1t2:None_Eyeglasses_Male-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3
-
-
-srun -p gpu --gres=gpu:1 --mem=16G \
-python evaluate_subpopulations.py \
-    --target_variable1=Male \
-    --target_variable2=Smiling \
-    --load=saves/celeba_natural_cls/ft1t2:None_Male_Smiling-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3
-
-srun -p gpu --gres=gpu:1 --mem=16G \
-python evaluate_subpopulations.py \
     --target_variable1=Male \
     --target_variable2=Smiling \
     --load=saves/celeba_natural_cond/ft1t2:None_Male_Smiling-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:conditional-dl:10.0-cls:1-s:3
-
-srun -p gpu --gres=gpu:1 --mem=16G \
-python evaluate_subpopulations.py \
-    --target_variable1=Male \
-    --target_variable2=Smiling \
-    --load=saves/celeba_natural_uncond/ft1t2:None_Male_Smiling-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:unconditional-dl:10.0-cls:1-s:3
-
-
-
-
-srun -p gpu --gres=gpu:1 --mem=16G \
-python evaluate_subpopulations.py \
-    --target_variable1=Male \
-    --target_variable2=Brown_Hair \
-    --load=saves/celeba_natural_gender_hair_cls/ft1t2:None_Male_Brown_Hair-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3
-
-srun -p gpu -x guppy2 --gres=gpu:1 --mem=16G \
-python evaluate_subpopulations.py \
-    --target_variable1=Male \
-    --target_variable2=Brown_Hair \
-    --load=saves/celeba_natural_gender_hair_cond/ft1t2:None_Male_Brown_Hair-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:conditional-dl:10.0-cls:1-s:3
-
-srun -p gpu -x guppy2 --gres=gpu:1 --mem=16G \
-python evaluate_subpopulations.py \
-    --target_variable1=Male \
-    --target_variable2=Brown_Hair \
-    --load=saves/celeba_natural_gender_hair_uncond/ft1t2:None_Male_Brown_Hair-trnc:0.0-tstc:0.0-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:unconditional-dl:10.0-cls:1-s:3
 """
 import os
 import sys
@@ -203,4 +164,3 @@ for i in range(confusion_mat.shape[0]):
     num_total = np.sum(row)
     print(num_correct / num_total)
     sys.stdout.flush()
-
