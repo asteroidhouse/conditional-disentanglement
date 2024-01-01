@@ -1,11 +1,9 @@
 """Code to reproduce results and figures for toy linear classification.
 
 **Notation:**
-- Target: s 
+- Target: s
 - Data: x
 - Latent space: z
-
-It is faster to run this code on a GPU.
 
 Example
 -------
@@ -14,6 +12,7 @@ python toy_linear_classification.py 4 0
 import os
 import sys
 import csv
+import pdb
 import time
 import itertools
 import numpy as np
@@ -33,7 +32,6 @@ if not os.path.exists(save_dir):
   os.makedirs(save_dir)
 
 use_device = 'cpu'
-#use_device = 'cuda:0'
 N = 10000
 criterion_classification = nn.BCEWithLogitsLoss()
 
@@ -73,10 +71,11 @@ def sample_a_classification(num_samples, noise_level, correlation, dim):
   between -1 and 1. For multiple attributes, strong negative correlations
   are impossible.
   """
-  # We obtain the desired correlation, by making the combinations where all attributes are the
-  # same are less common (given by t1) compared to the other combinations of attribute values
-  # (given by t2). Thereby, we t1 and t2 depend on the number of attributes and the correlation
-  # strength (for 2 attributes t1=c1 and t2=c2):
+  # We obtain the desired correlation, by making the combinations where all
+  # attributes are the same are less common (given by t1) compared to the other
+  # combinations of attribute values (given by t2). Thereby, we t1 and t2 depend
+  # on the number of attributes and the correlation strength
+  # (for 2 attributes t1=c1 and t2=c2):
   c1 = 1 + correlation
   c2 = 1 - correlation
   n = 2 ** (dim - 2)
@@ -331,8 +330,12 @@ def minimize(x, a, loss_terms, dim):
       a_discret = (a > 0).float()
       discr_list = []
       for d in range(dim):
-        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, -1, a=a_discret))
-        discr_list.append(ConditionalDiscriminator(N, dim, lr_discr, d, 1, a=a_discret))
+        discr_list.append(
+            ConditionalDiscriminator(N, dim, lr_discr, d, -1, s=a_discret)
+        )
+        discr_list.append(
+            ConditionalDiscriminator(N, dim, lr_discr, d, 1, s=a_discret)
+        )
 
     optimizer = optim.Adam([W, R], lr=lr_gen)
     optimizer_for_R = optim.Adam([R], lr=lr_regr)
@@ -564,29 +567,35 @@ def vary_A_noise_and_correlation(list_noise_level, list_correlation, dim, filena
       print(noise_level)
       full_index = (correlation_index, noise_level_index)
 
-      results_classification[full_index] = get_results(correlation,
-                                                       noise_level,
-                                                       A,
-                                                       anti_correlation,
-                                                       'classification',
-                                                       dim=dim,
-                                                       filename=filename)
+      results_classification[full_index] = get_results(
+          correlation,
+          noise_level,
+          A,
+          anti_correlation,
+          'classification',
+          dim=dim,
+          filename=filename
+      )
 
-      results_unconditional[full_index] = get_results(correlation,
-                                                      noise_level,
-                                                      A,
-                                                      anti_correlation,
-                                                      'classification_unconditional',
-                                                      dim=dim,
-                                                      filename=filename)
+      results_unconditional[full_index] = get_results(
+          correlation,
+          noise_level,
+          A,
+          anti_correlation,
+          'classification_unconditional',
+          dim=dim,
+          filename=filename
+      )
 
-      results_conditional[full_index] = get_results(correlation,
-                                                    noise_level,
-                                                    A,
-                                                    anti_correlation,
-                                                    'classification_conditional',
-                                                    dim=dim,
-                                                    filename=filename)
+      results_conditional[full_index] = get_results(
+          correlation,
+          noise_level,
+          A,
+          anti_correlation,
+          'classification_conditional',
+          dim=dim,
+          filename=filename
+      )
 
   results_combined = np.array([results_classification, results_unconditional, results_conditional])
   return results_combined
@@ -608,11 +617,12 @@ def plot_noise_dependency(ax, x, results, reference=None):
   # Plot performance for training and test
   ax.plot(x, results[:, 0], linewidth=2, color=color_train, marker='o', markersize=3)
   ax.plot(x, results[:, 1], linewidth=2, color=color_test, marker='o', markersize=3)
-  # Plot max and min for test sets
-  ax.fill_between(x, results[:, 2], results[:, 3], color=color_test, alpha=.1)
 
   if reference is not None:
     ax.plot(x, reference[:, 1], linewidth=1, color='black', linestyle='dashed')
+
+  # Plot max and min for test sets
+  ax.fill_between(x, results[:, 2], results[:, 3], color=color_test, alpha=.1)
 
   ax.set_xscale('log')
   ax.set_ylim([0.45, 1.05])
@@ -647,17 +657,21 @@ def figure_noise_dependency(dim):
     list_noise_level = np.logspace(-2, 2, 10)
     list_correlation = [0, 0.6, 0.95]
 
-    results_combined = vary_A_noise_and_correlation(list_noise_level=list_noise_level,
-                                                    list_correlation=list_correlation,
-                                                    dim=dim,
-                                                    filename=filename)
+    results_combined = vary_A_noise_and_correlation(
+        list_noise_level=list_noise_level,
+        list_correlation=list_correlation,
+        dim=dim,
+        filename=filename
+    )
 
     np.save(os.path.join(subfolder, 'results_combined.npy'), results_combined)
     np.save(os.path.join(subfolder, 'list_noise_level.npy'), list_noise_level)
     np.save(os.path.join(subfolder, 'list_correlation.npy'), list_correlation)
 
   num_correlations = len(list_correlation)
-  fig, axs = plt.subplots(num_correlations, 3, figsize = (10, 6.5), sharex='all', sharey='all')
+  fig, axs = plt.subplots(
+      num_correlations, 3, figsize=(10, 6.5), sharex='all', sharey='all'
+  )
   for col in range(3):
     for row in range(num_correlations):
       plot_noise_dependency(axs[row, col],
@@ -697,14 +711,17 @@ def figure_noise_dependency(dim):
 
 
 def plot_input_data_distribution():
-  """Plot the input data distribution (2 attributes) for a range of noise levels and correlations
+  """Plot the input data distribution (2 attributes) for a range of noise
+     levels and correlations
   """
   colors = ["#E00072", "#00830B", "#2B1A7F", "#E06111", "#4F4C4B", "#02D4F9"]
   list_noise_level = [0.1, 0.5, 1.0]
   list_correlation = [0, 0.6, 0.95]
   num_correlations = len(list_correlation)
 
-  fig, axs = plt.subplots(num_correlations, 3, figsize = (10, 8), sharex='all', sharey='all')
+  fig, axs = plt.subplots(
+      num_correlations, 3, figsize=(10, 8), sharex='all', sharey='all'
+  )
 
   for noise_idx, noise_level in enumerate(list_noise_level):
     for corr_idx, correlation in enumerate(list_correlation):
@@ -725,11 +742,17 @@ def plot_input_data_distribution():
         sel_corr_x2 = x2[idxs]
 
         if setting[0]==1:
-          ax.scatter(sel_corr_x1, sel_corr_x2, edgecolors=None, s=2, alpha=0.3,
-                     color=colors[i], label='$a_1$ = {}, \ $a_2$ = {}'.format(setting[0], setting[1]))
+          ax.scatter(
+              sel_corr_x1, sel_corr_x2, edgecolors=None, s=2, alpha=0.3,
+              color=colors[i],
+              label='$a_1$ = {}, \ $a_2$ = {}'.format(setting[0], setting[1])
+          )
         else:
-          ax.scatter(sel_corr_x1, sel_corr_x2, edgecolors=None, s=2, alpha=0.3,
-                     color=colors[i], label='$a_1$ = {}, $a_2$ = {}'.format(setting[0], setting[1]))
+          ax.scatter(
+              sel_corr_x1, sel_corr_x2, edgecolors=None, s=2, alpha=0.3,
+              color=colors[i],
+              label='$a_1$ = {}, $a_2$ = {}'.format(setting[0], setting[1])
+          )
 
       ax.set_xticks([])
       ax.set_yticks([])
@@ -751,14 +774,17 @@ def plot_input_data_distribution():
 
 
 if __name__ == '__main__':
-  #print('dim = ', sys.argv[1])
-  dim = 2#int(sys.argv[1])
+  print('dim = {}'.format(sys.argv[1]))
+  dim = int(sys.argv[1])
+
   if dim == 2:
     plot_input_data_distribution()
 
-  job_id = 2#int(sys.argv[2])
+  job_id = 2  #int(sys.argv[2])
   verbose = False
-  load = True # if the results are already there and you want to load them for making the figure
+
+  # If the results are already there and you want to load them for making the figure
+  load = False
   adaptiveweight = 'fix100'
 
   # Initialize from result of optimal classification (otherwise init from identity)
