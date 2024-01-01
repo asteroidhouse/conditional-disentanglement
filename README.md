@@ -1,6 +1,9 @@
 # Disentanglement and Generalization Under Correlation Shifts
 
-This repository contains code for the paper "Disentanglement and Generalization Under Correlation Shifts."
+This repository contains code for the paper [Disentanglement and Generalization Under Correlation Shifts (CoLLAs 2022)](https://arxiv.org/abs/2112.14754).
+
+![Adversarial minimization of conditional mutual information via latent-space shuffling.](figures/Adversarial-CMI-Minimization.png)
+
 
 ## Setup
 
@@ -22,8 +25,6 @@ pip install -r requirements.txt
 python toy_linear_regression.py
 ```
 
-![Toy linear regression plot](figures/toy-linear-regression.png)
-
 
 ### Toy Linear Classification
 ```
@@ -31,8 +32,6 @@ for DIM in 2 4 10 ; do
     python toy_linear_classification.py $DIM 1
 done
 ```
-
-![Toy linear classification plot](figures/toy-linear-classification.png)
 
 
 ### Correlated Multi-Digit MNIST
@@ -53,7 +52,7 @@ for NOISE in 0.0 0.2 0.4 0.6 0.8 ; do
             --z_dim=10 \
             --noise=$NOISE \
             --mi_type=none \
-            --save_dir=saves/multi_mnist_cls &
+            --save_dir=saves/multi_mnist_cls
     done
 done
 ```
@@ -75,7 +74,7 @@ for NOISE in 0.0 0.2 0.4 0.6 0.8 ; do
             --z_dim=10 \
             --noise=$NOISE \
             --mi_type=unconditional \
-            --save_dir=saves/multi_mnist_uncond &
+            --save_dir=saves/multi_mnist_uncond
     done
 done
 ```
@@ -97,17 +96,16 @@ for NOISE in 0.0 0.2 0.4 0.6 0.8 ; do
             --z_dim=10 \
             --noise=$NOISE \
             --mi_type=conditional \
-            --save_dir=saves/multi_mnist_cond &
+            --save_dir=saves/multi_mnist_cond
     done
 done
 ```
 
 **Plot Results**
 ```
+python load_and_eval_corr.py
 python plot_multi_mnist.py
 ```
-
-![Correlated multi-digit MNIST plot](figures/multi-digit-mnist.png)
 
 
 ### Correlated CelebA
@@ -115,7 +113,7 @@ python plot_multi_mnist.py
 **Train with only Classification Loss**
 ```
 for TRAIN_CORRELATION in 0.0 0.2 0.4 0.6 0.8 ; do
-	python train_correlated.py \
+    python train_correlated.py \
         --model=mlp \
         --epochs=200 \
         --dataset_type=correlated1 \
@@ -131,7 +129,7 @@ for TRAIN_CORRELATION in 0.0 0.2 0.4 0.6 0.8 ; do
         --z_dim=10 \
         --disentangle_weight=10.0 \
         --mi_type=none \
-        --save_dir=saves/celeba_cls &
+        --save_dir=saves/celeba_cls
 done
 ```
 
@@ -154,7 +152,7 @@ for TRAIN_CORRELATION in 0.0 0.2 0.4 0.6 0.8 ; do
         --z_dim=10 \
         --disentangle_weight=10.0 \
         --mi_type=unconditional \
-        --save_dir=saves/celeba_uncond &
+        --save_dir=saves/celeba_uncond
 done
 ```
 
@@ -177,7 +175,7 @@ for TRAIN_CORRELATION in 0.0 0.2 0.4 0.6 0.8 ; do
         --z_dim=10 \
         --disentangle_weight=10.0 \
         --mi_type=conditional \
-        --save_dir=saves/celeba_cond &
+        --save_dir=saves/celeba_cond
 done
 ```
 
@@ -185,8 +183,6 @@ done
 ```
 python plot_celeba.py
 ```
-
-![Correlated CelebA plot](figures/celeba.png)
 
 
 ### Weakly-Supervised CelebA
@@ -200,8 +196,6 @@ bash loop_celeba_weakly.sh
 ```
 python plot_celeba_weakly.py
 ```
-
-![Weakly-supervised CelebA plot](figures/weakly-supervised-celeba.png)
 
 
 ### Evaluating Disentanglement Metrics
@@ -222,13 +216,13 @@ python evaluate_disentanglement.py
 
 If you use this code, please cite:
 
-* `Christina Funke*, Paul Vicol*, Kuan-Chieh Wang, Matthias Kümmerer, Richard Zemel, Matthias Bethge. "Disentanglement and Generalization Under Correlation Shifts." arXiv ... 2021.`
+* `Christina Funke*, Paul Vicol*, Kuan-Chieh Wang, Matthias Kümmerer, Richard Zemel, Matthias Bethge. "Disentanglement and Generalization Under Correlation Shifts." CoLLAs 2022.`
 
 ```
-@article{cond-disentanglement,
-  title={Disentanglement and Generalization Under Correlation Shifts},
+@inproceedings{funke2022disentanglement,
+  title={{Disentanglement and Generalization Under Correlation Shifts}},
   author={Funke, Christina and Vicol, Paul and Wang, Kuan-Chieh and Kümmerer, Matthias and Zemel, Richard and Bethge, Matthias},
-  journal={arXiv preprint arXiv:},
-  year={2021}
+  booktitle={Conference on Lifelong Learning Agents (CoLLAs)},
+  year={2022}
 }
 ```
