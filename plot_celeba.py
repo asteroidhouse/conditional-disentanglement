@@ -9,7 +9,6 @@ import os
 import sys
 import csv
 import pdb
-import argparse
 import numpy as np
 from collections import defaultdict
 
@@ -38,20 +37,22 @@ def load_log(exp_dir, fname='iteration.csv'):
   return result_dict
 
 
-figure_dirname = 'figures_combined_after_grid'
+figure_dirname = 'figures'
 if not os.path.exists(figure_dirname):
   os.makedirs(figure_dirname)
 
-paths = [('celeba_cls_corr_grid_male_smiling_5', 'Cls'),
-         ('celeba_uncond_corr_grid_male_smiling_6', 'Uncond'),
-         ('celeba_cond_corr_grid_male_smiling_5', 'Cond'),
-        ]
+paths = [
+    ('saves/celeba_cls', 'Cls'),
+    ('saves/celeba_uncond', 'Uncond'),
+    ('saves/celeba_cond', 'Cond'),
+]
 
-name_mapping = {'avg_loss': 'Cross Entropy Loss',
-                'avg_acc': 'Accuracy',
-                'f1_acc': 'Left Accuracy',
-                'f2_acc': 'Right Accuracy'
-               }
+name_mapping = {
+    'avg_loss': 'Cross Entropy Loss',
+    'avg_acc': 'Accuracy',
+    'f1_acc': 'Left Accuracy',
+    'f2_acc': 'Right Accuracy'
+}
 
 for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
   result_dict = defaultdict(lambda: defaultdict(list))
@@ -87,10 +88,9 @@ for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
           test_ac_perf = log['tst_ac_f2_acc'][use_epoch]
           test_uc_perf = log['tst_uc_f2_acc'][use_epoch]
 
-        result_dict[name][arg_dict['train_corr']].append((train_perf,
-                                                          val_perf,
-                                                          test_ac_perf,
-                                                          test_uc_perf))
+        result_dict[name][arg_dict['train_corr']].append(
+            (train_perf, val_perf, test_ac_perf, test_uc_perf)
+        )
         result_fname_dict[name][arg_dict['train_corr']].append(expdir)
       except:
         pass
@@ -124,9 +124,11 @@ for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
 
   for method_name in best_fname_dict:
     for corr in sorted(best_fname_dict[method_name].keys()):
-      print('{} Corr={} Path={}'.format(method_name, corr, best_fname_dict[method_name][corr]))
+      print('{} Corr={} Path={}'.format(
+            method_name, corr, best_fname_dict[method_name][corr])
+      )
 
-  colors = ["#E06111", "#4F4C4B", "#02D4F9"]
+  colors = ['#E06111', '#4F4C4B', '#02D4F9']
   linestyles = ['-', '--', ':']
 
   fig = plt.figure()
@@ -149,11 +151,13 @@ for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
   plt.xlabel('Correlation', fontsize=20)
   plt.ylabel(name_mapping[use_metric], fontsize=20)
 
-  lgd = fig.legend(bbox_to_anchor=(0.95, 0.5),
-                   loc='center left',
-                   ncol=1,
-                   borderaxespad=0.,
-                   fontsize=18)
+  lgd = fig.legend(
+      bbox_to_anchor=(0.95, 0.5),
+      loc='center left',
+      ncol=1,
+      borderaxespad=0.,
+      fontsize=18
+  )
 
   plt.savefig(os.path.join(figure_dirname, '{}_corr.png'.format(use_metric)),
               bbox_inches='tight', pad_inches=0)
