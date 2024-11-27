@@ -6,7 +6,7 @@ python evaluate_disentanglement.py
 """
 import os
 import sys
-import ipdb
+import pdb
 import random
 import argparse
 import numpy as np
@@ -22,17 +22,21 @@ from metrics import *
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--metrics', type=str, default='irs,sap,unsupervised,mig,fairness,factor_vae,dci,beta_vae',
-                    help='Comma-separated list of disentanglement metrics to measure')
+parser.add_argument('--metrics', type=str,
+                    default='irs,sap,unsupervised,mig,fairness,factor_vae,dci,beta_vae',
+                    help='Comma-separated list of metrics to measure')
 parser.add_argument('--train_correlation', type=float, default=0.0,
                     help='Use models trained with this correlation')
 
 parser.add_argument('--dataset_type', type=str, default='correlated1',
                     help='Dataset type to load (conditioned, correlated1, correlated2)')
-parser.add_argument('--filter_variable', type=str, choices=CELEBA_ATTRS)
-parser.add_argument('--target_variable1', type=str, choices=CELEBA_ATTRS, default='Male',
+parser.add_argument('--filter_variable', type=str,
+                    choices=CELEBA_ATTRS)
+parser.add_argument('--target_variable1', type=str, default='Male',
+                    choices=CELEBA_ATTRS,
                     help='First attribute name')
-parser.add_argument('--target_variable2', type=str, choices=CELEBA_ATTRS, default='Smiling',
+parser.add_argument('--target_variable2', type=str, default='Smiling',
+                    choices=CELEBA_ATTRS,
                     help='Second attribute name')
 parser.add_argument('--model', type=str, default='mlp',
                     help='Model')
@@ -71,26 +75,31 @@ possible_labels = [c_to_i[v] for v in classes]
 
 def get_celeba_test_data(correlation=0.0):
   if args.dataset_type == 'correlated1':
-    datasets = celeba.get_correlated_celeba(factor1=args.target_variable1,
-                                            factor2=args.target_variable2,
-                                            train_corr=0.0,
-                                            test_corr=correlation,
-                                            noise=args.noise,
-                                            splits=['test'])
+    datasets = celeba.get_correlated_celeba(
+        factor1=args.target_variable1,
+        factor2=args.target_variable2,
+        train_corr=0.0,
+        test_corr=correlation,
+        noise=args.noise,
+        splits=['test']
+    )
     return datasets['test']
   elif args.dataset_type == 'correlated2':
-    datasets = celeba.get_correlated_celeba_sampled(factor1=args.target_variable1,
-                                                    factor2=args.target_variable2,
-                                                    train_corr=args.train_corr,
-                                                    test_corr=args.test_corr,
-                                                    noise=args.noise)
+    datasets = celeba.get_correlated_celeba_sampled(
+        factor1=args.target_variable1,
+        factor2=args.target_variable2,
+        train_corr=args.train_corr,
+        test_corr=args.test_corr,
+        noise=args.noise
+    )
     train_loader = DataLoader(datasets['train'], batch_size=100, shuffle=True)
     val_loader = DataLoader(datasets['val'], batch_size=100, shuffle=True)
     test_loader = DataLoader(datasets['test'], batch_size=100, shuffle=True)
 
 
 class DataSampler:
-  """Wrapper for the CelebA dataset to support the same type of interface as GroundTruthData.
+  """Wrapper for the CelebA dataset to support the same type of interface
+     as GroundTruthData.
 
   Mimics the interface from https://github.com/google-research/disentanglement_lib/blob/86a644d4ed35c771560dc3360756363d35477357/disentanglement_lib/data/ground_truth/ground_truth_data.py
   """
@@ -98,11 +107,16 @@ class DataSampler:
     self.dataset = dataset
     self.num_factors = 2  # Hardcoded for now
     unique_factors = np.unique(self.dataset.labels, axis=0)
-    # Use tuple(factor) to convert the numpy array factor into a HASHABLE tuple so that we can use it as a key!
-    self.factor_to_observation_dict = {tuple(factor): np.where((self.dataset.labels == factor).all(axis=1)) for factor in unique_factors}
+    # Use tuple(factor) to convert the numpy array factor into a
+    # HASHABLE tuple so that we can use it as a key!
+    self.factor_to_observation_dict = {
+        tuple(factor): np.where((self.dataset.labels == factor).all(axis=1))
+        for factor in unique_factors
+    }
 
   def sample_observations_from_factors(self, factors, random_state):
-    # Again need to convert the numpy array factor_val to a tuple for use as a dict key!
+    # Again need to convert the numpy array factor_val to a tuple for use
+    # as a dict key!
     idxs = []
     for factor_val in factors:
         potential_idxs = self.factor_to_observation_dict[tuple(factor_val)][0]
@@ -216,10 +230,11 @@ def compute_metrics(dataset, representation_function, random_state, num_train,
 
 # Load a trained model
 # --------------------
-exp_paths = [('cls', 'saves/celeba/celeba_cls_corr_grid_male_smiling_5/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3'),
-             ('uncond', 'saves/celeba/celeba_uncond_corr_grid_male_smiling_6/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:unconditional-dl:10.0-cls:1-s:3'),
-             ('cond', 'saves/celeba/celeba_cond_corr_grid_male_smiling_5/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:conditional-dl:10.0-cls:1-s:3')
-            ]
+exp_paths = [
+    ('cls', 'saves/celeba_cls/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:none-dl:10.0-cls:1-s:3'),
+    ('uncond', 'saves/celeba_uncond/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:unconditional-dl:10.0-cls:1-s:3'),
+    ('cond', 'saves/celeba_cond/ft1t2:None_Male_Smiling-trnc:0.8-tstc:-0.8-m:mlp-lr:1e-05-clr:0.0001-dlr:0.0001-on:0.0-z:10-mi:conditional-dl:10.0-cls:1-s:3')
+]
 # --------------------
 
 for correlation in [0.0, 0.2, 0.4, 0.6, 0.8]:
@@ -245,13 +260,15 @@ for correlation in [0.0, 0.2, 0.4, 0.6, 0.8]:
 
     random_state = np.random.RandomState(3)
     data_sampler = DataSampler(test_dataset)
-    metric_dict = compute_metrics(data_sampler,
-                                  representation_function,
-                                  random_state,
-                                  num_train=10000,
-                                  num_eval=10000,
-                                  num_test=10000,
-                                  batch_size=500)
+    metric_dict = compute_metrics(
+        data_sampler,
+        representation_function,
+        random_state,
+        num_train=10000,
+        num_eval=10000,
+        num_test=10000,
+        batch_size=500
+    )
 
     print('Method: {}'.format(method_name))
     print('='*80)

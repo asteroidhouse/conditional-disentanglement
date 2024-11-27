@@ -152,6 +152,33 @@ for base_dir in base_dirs:
 
       agg_result_dict = defaultdict(list)
 
+      classes = [3, 8]
+      trainset_correlated, valset_correlated, _, c_to_i, i_to_c = data_utils.get_correlated_data(
+          'mnist',
+          classes=classes,
+          train_corr=args['train_corr'],
+          test_corr=0.0,
+          noise=args['noise'],
+          occlusion_patch_size=args['occlusion_patch_size']
+      )
+      possible_labels = [c_to_i[v] for v in classes]
+      train_loader_correlated = DataLoader(trainset_correlated, batch_size=100, shuffle=True)
+      val_loader_correlated = DataLoader(valset_correlated, batch_size=100, shuffle=True)
+      train_result_dict = evaluate(train_loader_correlated)
+      val_result_dict = evaluate(val_loader_correlated)
+
+      train_avg_acc = (train_result_dict['f1_acc'] + train_result_dict['f2_acc']) / 2.0
+      val_avg_acc = (val_result_dict['f1_acc'] + val_result_dict['f2_acc']) / 2.0
+
+      agg_result_dict.update({
+          f'train_{key}': value for (key, value) in train_result_dict.items()
+      })
+      agg_result_dict.update({
+          f'val_{key}': value for (key, value) in val_result_dict.items()
+      })
+      agg_result_dict['train_avg_acc'] = train_avg_acc
+      agg_result_dict['val_avg_acc'] = val_avg_acc
+
       test_corr_list = np.linspace(-1, 1, 200)
       # Create test data with a range of correlations between -1 and 1
       for test_corr in test_corr_list:

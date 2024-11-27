@@ -18,7 +18,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 matplotlib.rc('text', usetex=True)  # Activate latex text rendering
-matplotlib.rcParams['text.latex.preamble'] = [r'\usepackage{nicefrac}']
 
 
 save_dir = 'saves/linear_regression'

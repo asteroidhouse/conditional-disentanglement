@@ -18,6 +18,8 @@ yaml = YAML()
 yaml.preserve_quotes = True
 yaml.boolean_representation = ['False', 'True']
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
@@ -42,9 +44,9 @@ if not os.path.exists(figure_dirname):
   os.makedirs(figure_dirname)
 
 paths = [
-    ('saves/celeba_cls', 'Cls'),
-    ('saves/celeba_uncond', 'Uncond'),
-    ('saves/celeba_cond', 'Cond'),
+    ('saves/celeba_cls', 'Base'),
+    ('saves/celeba_uncond', 'Base+MI'),
+    ('saves/celeba_cond', 'Base+CMI'),
 ]
 
 name_mapping = {
@@ -54,18 +56,22 @@ name_mapping = {
     'f2_acc': 'Right Accuracy'
 }
 
-for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
-  result_dict = defaultdict(lambda: defaultdict(list))
-  result_fname_dict = defaultdict(lambda: defaultdict(list))
+seed_list = []
+
+for use_metric in ['avg_acc']:
+  result_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+  result_fname_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
   for (base_dir, name) in paths:
     for subdir in os.listdir(base_dir):
       try:
         expdir = os.path.join(base_dir, subdir)
         arg_dict = yaml.load(open(os.path.join(base_dir, subdir, 'args.yaml'), 'r'))
-        log = load_log(expdir)
+        seed = arg_dict['seed']
+        if seed not in seed_list:
+          seed_list.append(seed)
 
+        log = load_log(expdir)
         use_epoch = -1
-        # use_epoch = np.argmin(log['val_loss'])
 
         if use_metric == 'avg_loss':
           train_perf = log['trn_loss'][use_epoch]
@@ -88,33 +94,33 @@ for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
           test_ac_perf = log['tst_ac_f2_acc'][use_epoch]
           test_uc_perf = log['tst_uc_f2_acc'][use_epoch]
 
-        result_dict[name][arg_dict['train_corr']].append(
+        result_dict[name][arg_dict['train_corr']][seed].append(
             (train_perf, val_perf, test_ac_perf, test_uc_perf)
         )
-        result_fname_dict[name][arg_dict['train_corr']].append(expdir)
+        result_fname_dict[name][arg_dict['train_corr']][seed].append(expdir)
       except:
         pass
 
 
-  best_result_dict = defaultdict(lambda: {})
-  best_fname_dict = defaultdict(lambda: {})
+  best_result_dict = defaultdict(lambda: defaultdict(list))
+  best_fname_dict = defaultdict(lambda: defaultdict(list))
   for name in result_dict:
     for corr in result_dict[name]:
-      perfs = result_dict[name][corr]
-      test_perfs = [perf[3] for perf in perfs]
-      if 'acc' in use_metric:
-        best_perf_idx = np.argmax(test_perfs)
-      else:
-        best_perf_idx = np.argmin(test_perfs)
-      best_result_dict[name][corr] = perfs[best_perf_idx]
-      best_fname_dict[name][corr] = result_fname_dict[name][corr][best_perf_idx]
+      for seed in result_dict[name][corr]:
+        perfs = result_dict[name][corr][seed]
+        test_perfs = [perf[3] for perf in perfs]
+        if 'acc' in use_metric:
+          best_perf_idx = np.argmax(test_perfs)
+        else:
+          best_perf_idx = np.argmin(test_perfs)
+        best_result_dict[name][corr].append(perfs[best_perf_idx])
+        best_fname_dict[name][corr].append(result_fname_dict[name][corr][best_perf_idx])
 
   print('Metric: {}'.format(use_metric))
   print('='*80)
-
   for method_name in best_result_dict:
     for corr in sorted(best_result_dict[method_name].keys()):
-      perfs = best_result_dict[method_name][corr]
+      perfs = best_result_dict[method_name][corr][0]
       if 'acc' in use_metric:
         print('{} Corr={}: Val {:4.2f} | AC {:4.2f} | UC {:4.2f}'.format(
               method_name, corr, perfs[1]*100.0, perfs[2]*100.0, perfs[3]*100.0))
@@ -124,43 +130,61 @@ for use_metric in ['avg_loss', 'avg_acc', 'f1_acc', 'f2_acc']:
 
   for method_name in best_fname_dict:
     for corr in sorted(best_fname_dict[method_name].keys()):
-      print('{} Corr={} Path={}'.format(
-            method_name, corr, best_fname_dict[method_name][corr])
+      print('{} Corr={} Path={}'.format(method_name, corr, best_fname_dict[method_name][corr][0]))
+
+  colors = ["#E06111", "#4F4C4B", "#02D4F9"]
+  linestyles = ['-', '--', ':']
+  marker = 'o'
+
+  fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(14, 4), sharex='all', sharey='all')
+
+  for j, idx in enumerate([1, 3, 2]):  # Val, Uncorr, Anticorr
+    for i, method in enumerate(best_result_dict.keys()):
+      correlation_list = sorted(best_result_dict[method].keys())
+      curr_perf_list = [best_result_dict[method][corr] for corr in correlation_list]
+      val_perf_list = [[item[idx] for item in sublist] for sublist in curr_perf_list]
+      val_perf_list = np.array(val_perf_list).T
+      val_means = np.mean(val_perf_list, axis=0)
+      val_errors = np.std(val_perf_list, axis=0)
+      axs[j].errorbar(
+          correlation_list, val_means, yerr=val_errors,
+          linewidth=3, color=colors[i], marker=marker, label=method
       )
 
-  colors = ['#E06111', '#4F4C4B', '#02D4F9']
-  linestyles = ['-', '--', ':']
+  axs[0].set_title(r'Val (Correlated)', fontsize=22)
+  axs[1].set_title(r'Test (Uncorrelated)', fontsize=22)
+  axs[2].set_title(r'Test (Anticorrelated)', fontsize=22)
 
-  fig = plt.figure()
-  for i, method in enumerate(best_result_dict.keys()):
-    correlation_list = sorted(best_result_dict[method].keys())
-    train_perf_list = [best_result_dict[method][corr][0] for corr in correlation_list]
-    val_perf_list = [best_result_dict[method][corr][1] for corr in correlation_list]
-    test_ac_perf_list = [best_result_dict[method][corr][2] for corr in correlation_list]
-    test_uc_perf_list = [best_result_dict[method][corr][3] for corr in correlation_list]
+  axs[0].tick_params(axis='both', which='both', labelsize=16)
+  axs[1].tick_params(axis='both', which='both', labelsize=16)
+  axs[2].tick_params(axis='both', which='both', labelsize=16)
 
-    plt.plot(correlation_list, val_perf_list, linewidth=3, color=colors[i],
-             marker='o', label='{} Val'.format(method))
-    plt.plot(correlation_list, test_ac_perf_list, linewidth=3, color=colors[i],
-             linestyle='--', marker='o', label='{} AC'.format(method))
-    plt.plot(correlation_list, test_uc_perf_list, linewidth=3, color=colors[i],
-             linestyle=':', marker='o', label='{} UC'.format(method))
-
-  plt.xticks([0, 0.2, 0.4, 0.6, 0.8], fontsize=18)
-  plt.yticks([0.8, 0.84, 0.88, 0.92, 0.96], fontsize=18)
-  plt.xlabel('Correlation', fontsize=20)
-  plt.ylabel(name_mapping[use_metric], fontsize=20)
+  axs[0].set_xlabel('Train Correlation', fontsize=20)
+  axs[1].set_xlabel('Train Correlation', fontsize=20)
+  axs[2].set_xlabel('Train Correlation', fontsize=20)
+  axs[0].set_ylabel(name_mapping[use_metric], fontsize=20)
+  axs[0].grid(axis='y')
+  axs[1].grid(axis='y')
+  axs[2].grid(axis='y')
 
   lgd = fig.legend(
-      bbox_to_anchor=(0.95, 0.5),
+      ['Base', 'Base + MI', 'Base + CMI'],
+      bbox_to_anchor=(0.25, 1.02, 1, 0.2),
       loc='center left',
-      ncol=1,
+      ncol=3,
       borderaxespad=0.,
-      fontsize=18
+      fontsize=20
   )
 
-  plt.savefig(os.path.join(figure_dirname, '{}_corr.png'.format(use_metric)),
-              bbox_inches='tight', pad_inches=0)
-  plt.savefig(os.path.join(figure_dirname, '{}_corr.pdf'.format(use_metric)),
-              bbox_inches='tight', pad_inches=0)
+  plt.ylim(0.7, 0.97)
+
+  fig.subplots_adjust(hspace=0, wspace=0)
+  plt.savefig(
+      os.path.join(figure_dirname, '{}_corr.png'.format(use_metric)),
+      bbox_inches='tight', pad_inches=0
+  )
+  plt.savefig(
+      os.path.join(figure_dirname, '{}_corr.pdf'.format(use_metric)),
+      bbox_inches='tight', pad_inches=0
+  )
   plt.close(fig)
